@@ -4,11 +4,32 @@
             <h1 class="text-2xl font-bold text-primary">Thông tin nhân sự</h1>
             <p class="text-sm text-neutral mt-1">Quản lý Nhân sự — Đội ngũ dự án</p>
         </div>
-        <button class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-light transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-            Add Member
-        </button>
+        <div class="flex items-center gap-2">
+            <button onclick="exportFile('{{ route('export.members') }}')" class="inline-flex items-center gap-2 px-3 py-2 border border-border text-sm font-medium text-primary rounded-lg hover:bg-surface-alt transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                Export
+            </button>
+            <button onclick="document.getElementById('importMembersModal').classList.remove('hidden')" class="inline-flex items-center gap-2 px-3 py-2 border border-border text-sm font-medium text-primary rounded-lg hover:bg-surface-alt transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                Import
+            </button>
+            <button onclick="document.getElementById('createMemberModal').classList.remove('hidden')" class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-light transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                Add Member
+            </button>
+        </div>
     </div>
+
+    @if(session('success'))
+        <div class="mb-4 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-tertiary" x-data="{ show: true }" x-show="show" x-init="setTimeout(() => show = false, 3000)">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if($errors->any())
+        <div class="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-danger">
+            @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
+        </div>
+    @endif
 
     {{-- Stats --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -54,7 +75,21 @@
                         <p class="text-xs text-neutral">{{ $member->role }}</p>
                         <p class="text-xs text-secondary">{{ $member->position }}</p>
                     </div>
-                    <span class="w-2 h-2 rounded-full {{ $member->status === 'active' ? 'bg-tertiary' : 'bg-neutral-light' }} mt-1"></span>
+                    <div class="flex items-center gap-1">
+                        <span class="w-2 h-2 rounded-full {{ $member->status === 'active' ? 'bg-tertiary' : 'bg-neutral-light' }}"></span>
+                        <div class="relative" x-data="{ open: false }">
+                            <button @click="open = !open" class="p-1 rounded hover:bg-surface-alt transition">
+                                <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"/></svg>
+                            </button>
+                            <div x-show="open" @click.away="open = false" class="absolute right-0 top-8 w-36 bg-white rounded-lg border border-border shadow-lg py-1 z-10">
+                                <a href="{{ route('teams.edit', $member) }}" class="block px-3 py-2 text-xs text-primary hover:bg-surface-alt transition">Edit</a>
+                                <form action="{{ route('teams.destroy', $member) }}" method="POST" onsubmit="return confirm('Remove this member?')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="w-full text-left px-3 py-2 text-xs text-danger hover:bg-red-50 transition">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="space-y-2.5">
@@ -86,5 +121,73 @@
                 <p class="text-sm text-neutral">Chưa có thành viên nào</p>
             </div>
         @endforelse
+    </div>
+
+    {{-- Create Member Modal --}}
+    <div id="createMemberModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50" onclick="if(event.target===this) this.classList.add('hidden')">
+        <div class="bg-white rounded-xl w-full max-w-lg p-6 shadow-xl">
+            <h2 class="text-lg font-bold text-primary mb-4">Add New Member</h2>
+            <form action="{{ route('teams.store') }}" method="POST" class="space-y-4">
+                @csrf
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Full Name</label>
+                        <input type="text" name="name" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Email</label>
+                        <input type="email" name="email" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition" required>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Role</label>
+                        <input type="text" name="role" placeholder="e.g. Frontend Dev" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Position</label>
+                        <input type="text" name="position" placeholder="e.g. Senior Engineer" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Department</label>
+                        <select name="department_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition" required>
+                            <option value="">Select...</option>
+                            @foreach($departments as $dept)
+                                <option value="{{ $dept->id }}">{{ $dept->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Phone</label>
+                        <input type="text" name="phone" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                    </div>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('createMemberModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 text-sm font-medium text-neutral border border-border rounded-lg hover:bg-surface-alt transition">Cancel</button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-light transition">Add Member</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- Import Modal --}}
+    <div id="importMembersModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50" onclick="if(event.target===this) this.classList.add('hidden')">
+        <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-xl">
+            <h2 class="text-lg font-bold text-primary mb-4">Import Thành viên từ Excel</h2>
+            <form action="{{ route('import.members') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                @csrf
+                <div>
+                    <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">File Excel (.xlsx)</label>
+                    <input type="file" name="file" accept=".xlsx,.xls,.csv" class="w-full text-sm border border-border rounded-lg outline-none p-2 file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-surface-alt file:text-primary hover:file:bg-secondary hover:file:text-white file:transition" required>
+                    <p class="text-[10px] text-neutral mt-1">Cột bắt buộc: Name, Email. Tùy chọn: Role, Position, Department, Phone, Status</p>
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="document.getElementById('importMembersModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 text-sm font-medium text-neutral border border-border rounded-lg hover:bg-surface-alt transition">Hủy</button>
+                    <button type="submit" class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-light transition">Import</button>
+                </div>
+            </form>
+        </div>
     </div>
 </x-layouts.app>

@@ -16,6 +16,7 @@ class Task extends Model
         return [
             'start_date' => 'date',
             'due_date' => 'date',
+            'archived_at' => 'datetime',
         ];
     }
 

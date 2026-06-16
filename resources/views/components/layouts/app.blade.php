@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>ProjectFlow - {{ $title ?? 'Quản lý dự án' }}</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
@@ -68,7 +69,7 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
                         List
                     </a>
-                    <a href="#" class="flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition text-neutral-light hover:bg-surface-alt hover:text-primary">
+                    <a href="{{ route('tasks.calendar') }}" class="flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition {{ request()->routeIs('tasks.calendar') ? 'bg-blue-50 text-secondary font-medium' : 'text-neutral-light hover:bg-surface-alt hover:text-primary' }}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                         Calendar
                     </a>
@@ -85,11 +86,15 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
                             Files
                         </a>
+                        <a href="{{ route('tags') }}" class="flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition {{ request()->routeIs('tags') ? 'bg-blue-50 text-secondary font-medium' : 'text-neutral-light hover:bg-surface-alt hover:text-primary' }}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>
+                            Tags
+                        </a>
                     </nav>
                 </div>
 
                 <div class="mt-6 pt-4 border-t border-border">
-                    <a href="#" class="flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg text-neutral-light hover:bg-surface-alt hover:text-primary transition">
+                    <a href="{{ route('tasks.archive') }}" class="flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition {{ request()->routeIs('tasks.archive') ? 'bg-blue-50 text-secondary font-medium' : 'text-neutral-light hover:bg-surface-alt hover:text-primary' }}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
                         Archive
                     </a>
@@ -108,7 +113,119 @@
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.store('modal', { open: false, component: null, data: {} });
+            Alpine.store('ctx', {
+                open: false, x: 0, y: 0,
+                taskUrl: null, editUrl: null, deleteUrl: null, archiveUrl: null, redirectUrl: null,
+                show(e, opts) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.taskUrl = opts.taskUrl || null;
+                    this.editUrl = opts.editUrl || null;
+                    this.deleteUrl = opts.deleteUrl || null;
+                    this.archiveUrl = opts.archiveUrl || null;
+                    this.redirectUrl = opts.redirectUrl || null;
+                    const mw = 180, mh = 180;
+                    this.x = Math.min(e.clientX, window.innerWidth - mw - 8);
+                    this.y = Math.min(e.clientY, window.innerHeight - mh - 8);
+                    this.open = true;
+                },
+                close() { this.open = false; },
+                doDelete() {
+                    this.open = false;
+                    deleteResource(this.deleteUrl, this.redirectUrl);
+                },
+                doArchive() {
+                    this.open = false;
+                    archiveResource(this.archiveUrl, this.redirectUrl);
+                }
+            });
+        });
+
+        function exportFile(url) {
+            fetch(url).then(r => {
+                const name = r.headers.get('content-disposition')?.match(/filename=(.+)/)?.[1] || 'export.xlsx';
+                return r.blob().then(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name; a.click(); URL.revokeObjectURL(a.href); });
+            });
+        }
+
+        function archiveResource(url, redirectUrl) {
+            fetch(url, {
+                method: 'PATCH',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json',
+                },
+            }).then(() => { window.location.href = redirectUrl || window.location.href; });
+        }
+
+        function bulkAction(url, ids, redirectUrl) {
+            if (!ids.length) return;
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ ids }),
+            }).then(() => { window.location.href = redirectUrl || window.location.href; });
+        }
+
+        function deleteResource(url, redirectUrl) {
+            if (!confirm('Bạn có chắc muốn xóa?')) return;
+            fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    'Accept': 'application/json',
+                },
+            }).then(() => {
+                window.location.href = redirectUrl || '/tasks/board';
+            });
+        }
+
+        document.addEventListener('click', () => {
+            if (Alpine.store('ctx')) Alpine.store('ctx').close();
         });
     </script>
+
+    {{-- Global Context Menu --}}
+    <div x-data x-show="$store.ctx.open" x-cloak
+         :style="`top: ${$store.ctx.y}px; left: ${$store.ctx.x}px;`"
+         class="fixed z-[100] bg-white rounded-xl border border-border shadow-xl py-1.5 min-w-[170px]"
+         x-transition:enter="transition ease-out duration-100"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-75"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95">
+        <template x-if="$store.ctx.taskUrl">
+            <a :href="$store.ctx.taskUrl" class="flex items-center gap-2.5 px-3 py-2 text-sm text-primary hover:bg-surface-alt transition rounded-lg mx-1">
+                <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                Xem chi tiết
+            </a>
+        </template>
+        <template x-if="$store.ctx.editUrl">
+            <a :href="$store.ctx.editUrl" class="flex items-center gap-2.5 px-3 py-2 text-sm text-primary hover:bg-surface-alt transition rounded-lg mx-1">
+                <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                Chỉnh sửa
+            </a>
+        </template>
+        <template x-if="$store.ctx.archiveUrl">
+            <button @click="$store.ctx.doArchive()" class="flex items-center gap-2.5 px-3 py-2 text-sm text-primary hover:bg-surface-alt transition w-full text-left rounded-lg mx-1" style="width: calc(100% - 8px)">
+                <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                Lưu trữ
+            </button>
+        </template>
+        <template x-if="$store.ctx.deleteUrl">
+            <div>
+                <div class="border-t border-border my-1 mx-2"></div>
+                <button @click="$store.ctx.doDelete()" class="flex items-center gap-2.5 px-3 py-2 text-sm text-danger hover:bg-red-50 transition w-full text-left rounded-lg mx-1" style="width: calc(100% - 8px)">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    Xóa
+                </button>
+            </div>
+        </template>
+    </div>
 </body>
 </html>

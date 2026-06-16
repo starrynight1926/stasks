@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Department;
+use Illuminate\Http\Request;
 
 class DepartmentController extends Controller
 {
@@ -11,5 +12,46 @@ class DepartmentController extends Controller
         $departments = Department::withCount('members')->get();
 
         return view('departments', compact('departments'));
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'code' => 'required|string|max:10|unique:departments,code',
+            'color' => 'required|string|max:7',
+            'description' => 'nullable|string|max:500',
+            'head_name' => 'nullable|string|max:100',
+        ]);
+
+        $validated['member_count'] = 0;
+        $validated['active_projects'] = 0;
+        $validated['performance_score'] = 0;
+
+        Department::create($validated);
+
+        return redirect()->route('departments')->with('success', 'Department created successfully.');
+    }
+
+    public function update(Request $request, Department $department)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'code' => 'required|string|max:10|unique:departments,code,' . $department->id,
+            'color' => 'required|string|max:7',
+            'description' => 'nullable|string|max:500',
+            'head_name' => 'nullable|string|max:100',
+        ]);
+
+        $department->update($validated);
+
+        return redirect()->route('departments')->with('success', 'Department updated successfully.');
+    }
+
+    public function destroy(Department $department)
+    {
+        $department->delete();
+
+        return redirect()->route('departments')->with('success', 'Department deleted successfully.');
     }
 }
