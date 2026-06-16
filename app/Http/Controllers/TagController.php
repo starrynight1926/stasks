@@ -45,4 +45,19 @@ class TagController extends Controller
 
         return redirect()->route('tags')->with('success', 'Tag deleted successfully.');
     }
+
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate(['ids' => 'required|array', 'ids.*' => 'exists:tags,id']);
+        $tags = Tag::whereIn('id', $request->ids)->get();
+        foreach ($tags as $tag) {
+            $tag->tasks()->detach();
+            $tag->delete();
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => count($request->ids) . ' tags deleted.']);
+        }
+        return redirect()->route('tags')->with('success', count($request->ids) . ' tags deleted.');
+    }
 }

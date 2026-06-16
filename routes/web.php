@@ -38,17 +38,20 @@ Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->nam
 
 Route::get('/teams', [TeamController::class, 'index'])->name('teams');
 Route::post('/teams', [TeamController::class, 'store'])->name('teams.store');
+Route::post('/teams/bulk-destroy', [TeamController::class, 'bulkDestroy'])->name('teams.bulkDestroy');
 Route::get('/teams/{teamMember}/edit', [TeamController::class, 'edit'])->name('teams.edit');
 Route::put('/teams/{teamMember}', [TeamController::class, 'update'])->name('teams.update');
 Route::delete('/teams/{teamMember}', [TeamController::class, 'destroy'])->name('teams.destroy');
 
 Route::get('/departments', [DepartmentController::class, 'index'])->name('departments');
 Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
+Route::post('/departments/bulk-destroy', [DepartmentController::class, 'bulkDestroy'])->name('departments.bulkDestroy');
 Route::put('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
 Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
 
 Route::get('/tags', [TagController::class, 'index'])->name('tags');
 Route::post('/tags', [TagController::class, 'store'])->name('tags.store');
+Route::post('/tags/bulk-destroy', [TagController::class, 'bulkDestroy'])->name('tags.bulkDestroy');
 Route::put('/tags/{tag}', [TagController::class, 'update'])->name('tags.update');
 Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('tags.destroy');
 

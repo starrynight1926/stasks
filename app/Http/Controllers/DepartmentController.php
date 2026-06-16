@@ -54,4 +54,15 @@ class DepartmentController extends Controller
 
         return redirect()->route('departments')->with('success', 'Department deleted successfully.');
     }
+
+    public function bulkDestroy(Request $request)
+    {
+        $request->validate(['ids' => 'required|array', 'ids.*' => 'exists:departments,id']);
+        Department::whereIn('id', $request->ids)->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => count($request->ids) . ' departments deleted.']);
+        }
+        return redirect()->route('departments')->with('success', count($request->ids) . ' departments deleted.');
+    }
 }

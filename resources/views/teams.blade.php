@@ -1,4 +1,5 @@
 <x-layouts.app title="Team Management">
+    <div x-data="teamList()" class="space-y-4">
     <div class="flex items-center justify-between mb-6">
         <div>
             <h1 class="text-2xl font-bold text-primary">Thông tin nhân sự</h1>
@@ -30,6 +31,21 @@
             @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
         </div>
     @endif
+
+    {{-- Bulk Actions Bar --}}
+    <div x-show="selected.length > 0" x-cloak
+         class="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
+        <span class="text-sm font-medium text-secondary" x-text="selected.length + ' thành viên được chọn'"></span>
+        <div class="flex items-center gap-2 ml-auto">
+            <button @click="bulkDeleteSelected()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-danger border border-danger/30 rounded-lg hover:bg-red-50 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Xóa hàng loạt
+            </button>
+            <button @click="selected = []" class="p-1.5 rounded-lg hover:bg-surface-alt transition" title="Bỏ chọn">
+                <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+    </div>
 
     {{-- Stats --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -65,8 +81,9 @@
     {{-- Member Grid --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         @forelse($members as $member)
-            <div class="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-shadow">
+            <div class="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-shadow" :class="selected.includes({{ $member->id }}) ? 'ring-2 ring-secondary/50' : ''">
                 <div class="flex items-start gap-3 mb-4">
+                    <input type="checkbox" value="{{ $member->id }}" x-model.number="selected" class="w-4 h-4 mt-1 rounded border-border text-secondary focus:ring-secondary cursor-pointer">
                     <div class="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-white text-sm font-bold">
                         {{ $member->initials() }}
                     </div>
@@ -122,6 +139,20 @@
             </div>
         @endforelse
     </div>
+
+    </div>
+
+    <script>
+    function teamList() {
+        return {
+            selected: [],
+            bulkDeleteSelected() {
+                if (!confirm(`Xóa ${this.selected.length} thành viên? Hành động này không thể hoàn tác.`)) return;
+                bulkAction('{{ route('teams.bulkDestroy') }}', this.selected, '{{ route('teams') }}');
+            }
+        };
+    }
+    </script>
 
     {{-- Create Member Modal --}}
     <div id="createMemberModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50" onclick="if(event.target===this) this.classList.add('hidden')">
