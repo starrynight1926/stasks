@@ -7,7 +7,37 @@
     <title>ProjectFlow - {{ $title ?? 'Quản lý dự án' }}</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap" rel="stylesheet" />
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style type="text/tailwindcss">
+        @theme {
+            --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+            --color-primary: #0F172A;
+            --color-primary-light: #1E293B;
+            --color-secondary: #3B82F6;
+            --color-secondary-light: #60A5FA;
+            --color-secondary-dark: #2563EB;
+            --color-tertiary: #10B981;
+            --color-tertiary-light: #34D399;
+            --color-neutral: #64748B;
+            --color-neutral-light: #94A3B8;
+            --color-surface: #F8FAFC;
+            --color-surface-alt: #F1F5F9;
+            --color-border: #E2E8F0;
+            --color-border-light: #F1F5F9;
+            --color-danger: #EF4444;
+            --color-warning: #F59E0B;
+            --color-info: #3B82F6;
+            --color-success: #10B981;
+        }
+        @layer base {
+            body {
+                font-family: var(--font-sans);
+                color: var(--color-primary);
+                background: var(--color-surface);
+            }
+        }
+    </style>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
 </head>
 <body class="min-h-screen bg-surface" x-data="{ sidebarOpen: true }">
     {{-- Top Navigation --}}
