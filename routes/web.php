@@ -20,6 +20,9 @@ Route::middleware('simple.auth')->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    Route::get('/account/password', [AuthController::class, 'showChangePassword'])->name('account.password');
+    Route::post('/account/password', [AuthController::class, 'changePassword'])->name('account.password.update');
+
     Route::prefix('tasks')->name('tasks.')->group(function () {
         Route::get('/board', [TaskController::class, 'board'])->name('board');
         Route::get('/timeline', [TaskController::class, 'timeline'])->name('timeline');
@@ -35,12 +38,16 @@ Route::middleware('simple.auth')->group(function () {
         Route::put('/{task}', [TaskController::class, 'update'])->name('update');
         Route::delete('/{task}', [TaskController::class, 'destroy'])->name('destroy');
         Route::patch('/{task}/status', [TaskController::class, 'updateStatus'])->name('updateStatus');
+        Route::post('/{task}/subtasks', [TaskController::class, 'storeSubtask'])->name('subtasks.store');
+        Route::patch('/{task}/subtask-fields', [TaskController::class, 'updateSubtask'])->name('subtasks.update');
+        Route::patch('/{task}/cancel', [TaskController::class, 'cancelSubtask'])->name('subtasks.cancel');
         Route::patch('/{task}/archive', [TaskController::class, 'archiveTask'])->name('archiveTask');
         Route::patch('/{task}/unarchive', [TaskController::class, 'unarchiveTask'])->name('unarchiveTask');
     });
 
     Route::post('/tasks/{task}/comments', [CommentController::class, 'store'])->name('comments.store');
     Route::delete('/comments/{comment}', [CommentController::class, 'destroy'])->name('comments.destroy');
+    Route::post('/tasks/{task}/files', [FileController::class, 'storeForTask'])->name('tasks.files.store');
 
     Route::get('/teams', [TeamController::class, 'index'])->name('teams');
     Route::post('/teams', [TeamController::class, 'store'])->name('teams.store');
@@ -61,6 +68,7 @@ Route::middleware('simple.auth')->group(function () {
     Route::put('/tags/{tag}', [TagController::class, 'update'])->name('tags.update');
     Route::delete('/tags/{tag}', [TagController::class, 'destroy'])->name('tags.destroy');
 
+    Route::get('/files/{file}/view', [FileController::class, 'show'])->name('files.show');
     Route::get('/files', [FileController::class, 'index'])->name('files');
     Route::post('/files', [FileController::class, 'store'])->name('files.store');
     Route::post('/files/bulk-destroy', [FileController::class, 'bulkDestroy'])->name('files.bulkDestroy');

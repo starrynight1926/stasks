@@ -17,7 +17,22 @@ class Task extends Model
             'start_date' => 'date',
             'due_date' => 'date',
             'archived_at' => 'datetime',
+            'done_at' => 'datetime',
+            'cancelled_at' => 'datetime',
         ];
+    }
+
+    public function lifecycleState(): string
+    {
+        if ($this->status === 'cancelled') return 'cancelled';
+        if ($this->status === 'done') {
+            if ($this->due_date && $this->done_at && $this->done_at->gt($this->due_date->endOfDay())) {
+                return 'done_late';
+            }
+            return 'done';
+        }
+        if ($this->status === 'in_progress') return 'in_progress';
+        return 'todo';
     }
 
     public function project(): BelongsTo

@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Models\TeamMember;
 use App\Models\Department;
 use App\Models\Tag;
+use App\Support\TaskOwnership;
 use Illuminate\Http\Request;
 
 class TaskController extends Controller
@@ -58,6 +59,7 @@ class TaskController extends Controller
         $calendarTasks = $tasks->map(fn($t) => [
             'id' => $t->id,
             'title' => $t->title,
+            'start_date' => $t->start_date?->format('Y-m-d'),
             'due_date' => $t->due_date?->format('Y-m-d'),
             'priority' => $t->priority,
             'status' => $t->status,
@@ -123,6 +125,7 @@ class TaskController extends Controller
             'visibility' => $validated['visibility'] ?? 'public',
             'progress' => 0,
             'sort_order' => Task::where('status', 'todo')->whereNull('parent_id')->max('sort_order') + 1,
+            'created_by' => TaskOwnership::currentUser() ?: null,
         ]);
 
         if (!empty($validated['tags'])) {
@@ -154,10 +157,12 @@ class TaskController extends Controller
 
     public function show(Task $task)
     {
-        $task->load('assignee', 'tags', 'comments.member', 'files', 'subtasks.assignee', 'dependencies', 'project', 'department');
+        $task->load('assignee', 'tags', 'comments.member', 'comments.files', 'files', 'subtasks.assignee', 'dependencies', 'project', 'department');
         $members = TeamMember::all();
+        $canManage = TaskOwnership::isOwner($task);
+        $allFiles = \App\Models\File::where('task_id', $task->id)->latest()->get();
 
-        return view('tasks.show', compact('task', 'members'));
+        return view('tasks.show', compact('task', 'members', 'canManage', 'allFiles'));
     }
 
     public function edit(Task $task)
@@ -168,8 +173,9 @@ class TaskController extends Controller
         $tags = Tag::all();
         $projects = Project::all();
         $tasks = Task::whereNull('parent_id')->where('id', '!=', $task->id)->get();
+        $canManage = TaskOwnership::isOwner($task);
 
-        return view('tasks.edit', compact('task', 'members', 'departments', 'tags', 'projects', 'tasks'));
+        return view('tasks.edit', compact('task', 'members', 'departments', 'tags', 'projects', 'tasks', 'canManage'));
     }
 
     public function update(Request $request, Task $task)
@@ -184,7 +190,6 @@ class TaskController extends Controller
             'due_date' => 'nullable|date',
             'start_date' => 'nullable|date',
             'visibility' => 'nullable|string|max:50',
-            'progress' => 'nullable|integer|min:0|max:100',
             'tags' => 'nullable|array',
             'tags.*' => 'exists:tags,id',
         ]);
@@ -199,7 +204,6 @@ class TaskController extends Controller
             'start_date' => $validated['start_date'] ?? null,
             'due_date' => $validated['due_date'] ?? null,
             'visibility' => $validated['visibility'] ?? 'public',
-            'progress' => $validated['progress'] ?? $task->progress,
         ]);
 
         $task->tags()->sync($validated['tags'] ?? []);
@@ -209,14 +213,30 @@ class TaskController extends Controller
 
     public function destroy(Request $request, Task $task)
     {
+        $parentId = $task->parent_id;
+
+        if ($parentId) {
+            $parent = Task::find($parentId);
+            if ($parent) {
+                TaskOwnership::abortIfNotOwner($parent);
+            }
+        } else {
+            TaskOwnership::abortIfNotOwner($task);
+        }
+
         $task->subtasks()->delete();
         $task->tags()->detach();
         $task->comments()->delete();
         $task->dependencies()->detach();
         $task->delete();
 
+        $parentProgress = $parentId ? $this->recalculateParentProgress($parentId) : null;
+
         if ($request->wantsJson() || $request->ajax()) {
-            return response()->json(['success' => true]);
+            return response()->json([
+                'success' => true,
+                'parent_progress' => $parentProgress,
+            ]);
         }
 
         return redirect()->route('tasks.board')->with('success', 'Task deleted successfully.');
@@ -287,18 +307,165 @@ class TaskController extends Controller
     public function updateStatus(Request $request, Task $task)
     {
         $validated = $request->validate([
-            'status' => 'required|in:todo,in_progress,review,done',
+            'status' => 'required|in:todo,in_progress,review,done,cancelled',
         ]);
 
-        $task->update([
-            'status' => $validated['status'],
-            'progress' => $validated['status'] === 'done' ? 100 : $task->progress,
-        ]);
+        $hasSubtasks = $task->subtasks()->exists();
+        $payload = ['status' => $validated['status']];
 
-        if ($request->wantsJson()) {
-            return response()->json(['success' => true]);
+        if ($validated['status'] === 'done') {
+            $payload['done_at'] = $task->done_at ?? now();
+            $payload['cancelled_at'] = null;
+            $payload['cancel_reason'] = null;
+            if (!$hasSubtasks) $payload['progress'] = 100;
+        } elseif ($validated['status'] === 'cancelled') {
+            $payload['cancelled_at'] = $task->cancelled_at ?? now();
+            $payload['done_at'] = null;
+        } else {
+            $payload['done_at'] = null;
+            $payload['cancelled_at'] = null;
+            $payload['cancel_reason'] = null;
+        }
+
+        $task->update($payload);
+
+        $parentProgress = null;
+        if ($task->parent_id) {
+            $parentProgress = $this->recalculateParentProgress($task->parent_id);
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'status' => $task->status,
+                'lifecycle' => $task->fresh()->lifecycleState(),
+                'progress' => (float) $task->progress,
+                'parent_progress' => $parentProgress,
+            ]);
         }
 
         return redirect()->back()->with('success', 'Status updated.');
+    }
+
+    public function cancelSubtask(Request $request, Task $task)
+    {
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $task->update([
+            'status' => 'cancelled',
+            'cancelled_at' => now(),
+            'cancel_reason' => $validated['reason'],
+            'done_at' => null,
+        ]);
+
+        $parentProgress = $task->parent_id ? $this->recalculateParentProgress($task->parent_id) : null;
+
+        return response()->json([
+            'success' => true,
+            'lifecycle' => 'cancelled',
+            'reason' => $task->cancel_reason,
+            'parent_progress' => $parentProgress,
+        ]);
+    }
+
+    public function updateSubtask(Request $request, Task $task)
+    {
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string|max:200',
+            'weight' => 'sometimes|nullable|integer|min:0|max:100',
+            'assignee_id' => 'sometimes|nullable|exists:team_members,id',
+            'status' => 'sometimes|in:todo,in_progress,review,done,cancelled',
+            'due_date' => 'sometimes|nullable|date',
+        ]);
+
+        $task->update($validated);
+
+        $parentProgress = $task->parent_id ? $this->recalculateParentProgress($task->parent_id) : null;
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'subtask' => [
+                    'id' => $task->id,
+                    'title' => $task->title,
+                    'weight' => (float) $task->weight,
+                    'status' => $task->status,
+                ],
+                'parent_progress' => $parentProgress,
+            ]);
+        }
+
+        return redirect()->back();
+    }
+
+    public function storeSubtask(Request $request, Task $task)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:200',
+            'weight' => 'nullable|integer|min:0|max:100',
+            'assignee_id' => 'nullable|exists:team_members,id',
+            'due_date' => 'nullable|date',
+        ]);
+
+        $subtask = Task::create([
+            'title' => $validated['title'],
+            'parent_id' => $task->id,
+            'project_id' => $task->project_id,
+            'assignee_id' => $validated['assignee_id'] ?? null,
+            'status' => 'todo',
+            'priority' => $task->priority,
+            'weight' => $validated['weight'] ?? 0,
+            'progress' => 0,
+            'due_date' => $validated['due_date'] ?? null,
+        ]);
+
+        $parentProgress = $this->recalculateParentProgress($task->id);
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'subtask' => [
+                    'id' => $subtask->id,
+                    'title' => $subtask->title,
+                    'status' => $subtask->status,
+                    'weight' => (float) $subtask->weight,
+                    'due_date' => $subtask->due_date?->format('Y-m-d'),
+                ],
+                'parent_progress' => $parentProgress,
+            ]);
+        }
+
+        return redirect()->route('tasks.show', $task)->with('success', 'Subtask added.');
+    }
+
+    private function recalculateParentProgress(int $parentId): float
+    {
+        $parent = Task::with('subtasks')->find($parentId);
+        if (!$parent) {
+            return 0;
+        }
+
+        $active = $parent->subtasks->where('status', '!=', 'cancelled')->values();
+        if ($active->isEmpty()) {
+            $parent->update(['progress' => 0]);
+            return 0;
+        }
+
+        $hasWeight = $active->contains(fn($s) => (float) $s->weight > 0);
+
+        if ($hasWeight) {
+            $doneWeight = (float) $active->where('status', 'done')->sum('weight');
+            $progress = round($doneWeight, 2);
+        } else {
+            $total = $active->count();
+            $done = $active->where('status', 'done')->count();
+            $progress = round(($done / $total) * 100, 2);
+        }
+
+        $parent->update(['progress' => $progress]);
+
+        return $progress;
     }
 }

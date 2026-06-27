@@ -10,6 +10,22 @@ class TeamMember extends Model
 {
     protected $guarded = [];
 
+    protected $hidden = ['password'];
+
+    protected $casts = [
+        'must_change_password' => 'boolean',
+    ];
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class);
+    }
+
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
@@ -29,5 +45,12 @@ class TeamMember extends Model
     {
         $parts = explode(' ', $this->name);
         return strtoupper(collect($parts)->map(fn($p) => $p[0] ?? '')->take(2)->join(''));
+    }
+
+    public function hasPermission(string $key): bool
+    {
+        if (!$this->role_id) return false;
+        $this->loadMissing('role.permissions');
+        return $this->role?->hasPermission($key) ?? false;
     }
 }

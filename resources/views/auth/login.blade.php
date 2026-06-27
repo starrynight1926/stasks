@@ -285,14 +285,15 @@
             <form action="{{ route('login.submit') }}" method="POST">
                 @csrf
 
-                {{-- Username (Email address in design) --}}
+                {{-- Username --}}
                 <div class="form-group">
                     <div class="form-label-row">
-                        <label for="username" class="form-label">Email address</label>
+                        <label for="username" class="form-label">Tên đăng nhập</label>
+                        <span style="font-size:0.7rem;color:#9CA3AF">Admin: bỏ trống</span>
                     </div>
                     <div class="input-wrapper">
-                        <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                        <input id="username" type="text" name="username" value="{{ old('username') }}" placeholder="name@company.com" autocomplete="off" class="form-input">
+                        <svg class="input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        <input id="username" type="text" name="username" value="{{ old('username') }}" placeholder="vd: nv1" autocomplete="username" class="form-input">
                     </div>
                 </div>
 

@@ -19,6 +19,11 @@ class File extends Model
         return $this->belongsTo(Project::class);
     }
 
+    public function comment(): BelongsTo
+    {
+        return $this->belongsTo(Comment::class);
+    }
+
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(TeamMember::class, 'uploaded_by');

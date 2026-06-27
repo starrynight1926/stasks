@@ -35,6 +35,17 @@
                 color: var(--color-primary);
                 background: var(--color-surface);
             }
+            button:not(:disabled),
+            [role="button"]:not(:disabled),
+            label:has(input[type="checkbox"]:not(:disabled)),
+            label:has(input[type="radio"]:not(:disabled)),
+            label:has(input[type="file"]:not(:disabled)),
+            summary {
+                cursor: pointer;
+            }
+            button:disabled {
+                cursor: not-allowed;
+            }
         }
     </style>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
@@ -75,11 +86,23 @@
                     </div>
                     <span class="text-sm font-medium text-primary hidden sm:block">{{ session('user_name', 'User') }}</span>
                 </button>
-                <div x-show="userMenu" @click.away="userMenu = false" x-cloak class="absolute right-0 top-12 w-44 bg-white rounded-xl border border-border shadow-lg py-1 z-50">
+                <div x-show="userMenu" @click.away="userMenu = false" x-cloak class="absolute right-0 top-12 w-56 bg-white rounded-xl border border-border shadow-lg py-1 z-50">
                     <div class="px-3 py-2 border-b border-border-light">
                         <p class="text-sm font-semibold text-primary">{{ session('user_name', 'User') }}</p>
-                        <p class="text-[10px] text-neutral">Administrator</p>
+                        <p class="text-[10px] text-neutral">
+                            @if(session('is_admin'))
+                                Administrator
+                            @else
+                                {{ session('role_name', 'Member') }}
+                            @endif
+                        </p>
                     </div>
+                    @if(session('member_id'))
+                        <a href="{{ route('account.password') }}" class="w-full text-left px-3 py-2 text-xs text-primary hover:bg-surface-alt transition flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            Đổi mật khẩu
+                        </a>
+                    @endif
                     <form action="{{ route('logout') }}" method="POST">
                         @csrf
                         <button type="submit" class="w-full text-left px-3 py-2 text-xs text-danger hover:bg-red-50 transition flex items-center gap-2">

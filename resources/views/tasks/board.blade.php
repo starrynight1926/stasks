@@ -1,13 +1,16 @@
 <x-layouts.app title="Kanban Board">
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6 gap-4">
         <div>
             <h1 class="text-2xl font-bold text-primary">Bảng Kanban</h1>
             <p class="text-sm text-neutral mt-1">Quản lý công việc theo trạng thái</p>
         </div>
-        <a href="{{ route('tasks.create') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-light transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            New Task
-        </a>
+        <div class="flex items-center gap-3">
+            @include('tasks._view_switcher', ['current' => 'tasks.board'])
+            <a href="{{ route('tasks.create') }}" class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-light transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                New Task
+            </a>
+        </div>
     </div>
 
     <div class="flex gap-4 overflow-x-auto pb-4">
