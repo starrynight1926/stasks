@@ -22,43 +22,130 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 space-y-6">
             {{-- Task Header --}}
-            <div class="bg-white rounded-xl border border-border p-5">
-                <div class="flex items-start justify-between mb-4">
-                    <div>
-                        <h1 class="text-xl font-bold text-primary">{{ $task->title }}</h1>
-                        <p class="text-xs text-neutral mt-1">Created {{ $task->created_at->diffForHumans() }}</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        @php
-                            $statusStyles = ['todo' => 'bg-gray-100 text-neutral', 'in_progress' => 'bg-blue-100 text-secondary', 'review' => 'bg-amber-100 text-amber-700', 'done' => 'bg-emerald-100 text-tertiary'];
-                            $statusLabels = ['todo' => 'To Do', 'in_progress' => 'In Progress', 'review' => 'Review', 'done' => 'Done'];
-                        @endphp
-                        <span class="text-xs font-medium px-2.5 py-1 rounded {{ $statusStyles[$task->status] ?? '' }}">{{ $statusLabels[$task->status] ?? $task->status }}</span>
+            @php
+                $statusMeta = [
+                    'todo'        => ['label' => 'To Do',       'dot' => '#94A3B8'],
+                    'in_progress' => ['label' => 'In Progress', 'dot' => '#3B82F6'],
+                    'review'      => ['label' => 'Review',      'dot' => '#F59E0B'],
+                    'done'        => ['label' => 'Done',        'dot' => '#10B981'],
+                    'cancelled'   => ['label' => 'Cancelled',   'dot' => '#EF4444'],
+                ];
+                $priorityMeta = [
+                    'urgent' => ['label' => 'Urgent', 'color' => '#DC2626'],
+                    'high'   => ['label' => 'High',   'color' => '#D97706'],
+                    'medium' => ['label' => 'Medium', 'color' => '#2563EB'],
+                    'low'    => ['label' => 'Low',    'color' => '#6B7280'],
+                ];
+            @endphp
+
+            <div class="bg-white rounded-xl border border-border p-5"
+                 x-data="taskHeader({
+                    quickUrl: '{{ route('tasks.quickUpdate', $task) }}',
+                    init: {
+                        status: '{{ $task->status }}',
+                        priority: '{{ $task->priority }}',
+                        assignee_id: {{ $task->assignee_id ? $task->assignee_id : 'null' }},
+                        assignee_name: @json($task->assignee?->name),
+                        assignee_initials: @json($task->assignee?->initials()),
+                        start_date: @json($task->start_date?->format('Y-m-d')),
+                        due_date: @json($task->due_date?->format('Y-m-d')),
+                    },
+                    members: {{ Js::from($members->map(fn($m) => ['id' => $m->id, 'name' => $m->name, 'initials' => $m->initials()])->values()) }},
+                 })">
+
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <h1 class="text-2xl font-bold text-primary leading-tight flex-1 break-words">{{ $task->title }}</h1>
+                    <div class="flex items-center gap-1 flex-shrink-0">
                         <a href="{{ route('tasks.edit', $task) }}" class="p-1.5 rounded-lg hover:bg-surface-alt transition" title="Edit Task">
                             <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                         </a>
+                        @if($canManage)
                         <button onclick="deleteResource('{{ route('tasks.destroy', $task) }}', '{{ route('tasks.board') }}')" class="p-1.5 rounded-lg hover:bg-red-50 transition" title="Delete Task">
                             <svg class="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                         </button>
+                        @endif
                     </div>
+                </div>
+
+                {{-- Inline property chips bar --}}
+                <div class="flex items-center gap-2 flex-wrap mb-4">
+                    {{-- Status --}}
+                    <div class="relative" @click.outside="open.status = false">
+                        <button @click="open.status = !open.status" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition">
+                            <span class="w-2 h-2 rounded-full" :style="`background:${statusDot()}`"></span>
+                            <span x-text="statusLabel()" class="font-medium"></span>
+                        </button>
+                        <div x-show="open.status" x-cloak class="absolute z-20 top-full mt-1 left-0 bg-white border border-border rounded-lg shadow-lg py-1 min-w-[140px]">
+                            <template x-for="(meta, key) in STATUS_META" :key="key">
+                                <button type="button" @click="setField('status', key)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-alt transition flex items-center gap-2" :class="status === key ? 'bg-surface-alt font-medium' : ''">
+                                    <span class="w-2 h-2 rounded-full" :style="`background:${meta.dot}`"></span>
+                                    <span x-text="meta.label"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    {{-- Priority --}}
+                    <div class="relative" @click.outside="open.priority = false">
+                        <button @click="open.priority = !open.priority" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition">
+                            <svg class="w-3 h-3" :style="`color:${priorityColor()}`" fill="currentColor" viewBox="0 0 24 24"><path d="M2 21V3l20 9-20 9z"/></svg>
+                            <span x-text="priorityLabel()" class="font-medium capitalize"></span>
+                        </button>
+                        <div x-show="open.priority" x-cloak class="absolute z-20 top-full mt-1 left-0 bg-white border border-border rounded-lg shadow-lg py-1 min-w-[120px]">
+                            <template x-for="(meta, key) in PRIORITY_META" :key="key">
+                                <button type="button" @click="setField('priority', key)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-alt transition flex items-center gap-2" :class="priority === key ? 'bg-surface-alt font-medium' : ''">
+                                    <svg class="w-3 h-3" :style="`color:${meta.color}`" fill="currentColor" viewBox="0 0 24 24"><path d="M2 21V3l20 9-20 9z"/></svg>
+                                    <span x-text="meta.label"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    {{-- Assignee --}}
+                    <div class="relative" @click.outside="open.assignee = false">
+                        <button @click="open.assignee = !open.assignee" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition">
+                            <template x-if="assignee_initials">
+                                <span class="w-4 h-4 rounded-full bg-secondary text-white text-[9px] font-semibold flex items-center justify-center" x-text="assignee_initials"></span>
+                            </template>
+                            <template x-if="!assignee_initials">
+                                <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            </template>
+                            <span x-text="assignee_name || 'Assignee'" :class="!assignee_name ? 'text-neutral' : ''"></span>
+                        </button>
+                        <div x-show="open.assignee" x-cloak class="absolute z-20 top-full mt-1 left-0 bg-white border border-border rounded-lg shadow-lg py-1 min-w-[200px] max-h-60 overflow-auto">
+                            <button type="button" @click="setField('assignee_id', null)" class="w-full text-left px-3 py-1.5 text-xs text-neutral hover:bg-surface-alt transition">— Unassigned —</button>
+                            <template x-for="m in members" :key="m.id">
+                                <button type="button" @click="setField('assignee_id', m.id, m)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-alt transition flex items-center gap-2" :class="assignee_id === m.id ? 'bg-surface-alt font-medium' : ''">
+                                    <span class="w-5 h-5 rounded-full bg-secondary text-white text-[10px] font-semibold flex items-center justify-center" x-text="m.initials"></span>
+                                    <span x-text="m.name"></span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    {{-- Start date --}}
+                    <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition cursor-pointer relative">
+                        <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <span x-text="start_date ? fmtDate(start_date) : 'Start date'" :class="!start_date ? 'text-neutral' : ''"></span>
+                        <input type="date" :value="start_date || ''" @change="setField('start_date', $event.target.value || null)" class="absolute inset-0 opacity-0 cursor-pointer">
+                    </label>
+
+                    {{-- Due date --}}
+                    <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition cursor-pointer relative">
+                        <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <span x-text="due_date ? fmtDate(due_date) : 'Due date'" :class="!due_date ? 'text-neutral' : ''"></span>
+                        <input type="date" :value="due_date || ''" @change="setField('due_date', $event.target.value || null)" class="absolute inset-0 opacity-0 cursor-pointer">
+                    </label>
+
+                    <span x-show="saving" class="text-[10px] text-neutral italic">Đang lưu…</span>
+                    <span x-show="errorMsg" x-text="errorMsg" x-cloak class="text-[10px] text-danger"></span>
                 </div>
 
                 @if($task->description)
-                    <div class="prose prose-sm max-w-none text-primary/80">
+                    <div class="prose prose-sm max-w-none text-primary/80 mt-3 pt-3 border-t border-border-light">
                         <p>{{ $task->description }}</p>
                     </div>
                 @endif
-
-                {{-- Quick Status Update --}}
-                <div class="mt-4 flex items-center gap-2">
-                    @foreach(['todo' => 'To Do', 'in_progress' => 'In Progress', 'review' => 'Review', 'done' => 'Done'] as $val => $label)
-                        <form action="{{ route('tasks.updateStatus', $task) }}" method="POST" class="inline">
-                            @csrf @method('PATCH')
-                            <input type="hidden" name="status" value="{{ $val }}">
-                            <button type="submit" class="px-3 py-1 text-[10px] font-medium rounded-full border transition {{ $task->status === $val ? 'bg-secondary text-white border-secondary' : 'text-neutral border-border hover:border-secondary hover:text-secondary' }}">{{ $label }}</button>
-                        </form>
-                    @endforeach
-                </div>
 
                 <div class="mt-4 p-3 bg-surface-alt rounded-lg" x-data="{ progress: {{ (float) $task->progress }} }" x-on:task-progress.window="progress = $event.detail">
                     <div class="flex items-center justify-between mb-1.5">
@@ -72,6 +159,70 @@
                     </div>
                 </div>
             </div>
+
+            <script>
+                function taskHeader(config) {
+                    const STATUS_META = {
+                        todo:        { label: 'To Do',       dot: '#94A3B8' },
+                        in_progress: { label: 'In Progress', dot: '#3B82F6' },
+                        review:      { label: 'Review',      dot: '#F59E0B' },
+                        done:        { label: 'Done',        dot: '#10B981' },
+                        cancelled:   { label: 'Cancelled',   dot: '#EF4444' },
+                    };
+                    const PRIORITY_META = {
+                        urgent: { label: 'Urgent', color: '#DC2626' },
+                        high:   { label: 'High',   color: '#D97706' },
+                        medium: { label: 'Medium', color: '#2563EB' },
+                        low:    { label: 'Low',    color: '#6B7280' },
+                    };
+                    return {
+                        STATUS_META, PRIORITY_META,
+                        ...config.init,
+                        members: config.members,
+                        open: { status: false, priority: false, assignee: false },
+                        saving: false, errorMsg: '',
+                        csrf: document.querySelector('meta[name="csrf-token"]').content,
+                        statusLabel() { return STATUS_META[this.status]?.label || this.status; },
+                        statusDot()   { return STATUS_META[this.status]?.dot   || '#94A3B8'; },
+                        priorityLabel(){ return PRIORITY_META[this.priority]?.label || this.priority; },
+                        priorityColor(){ return PRIORITY_META[this.priority]?.color || '#6B7280'; },
+                        fmtDate(d) {
+                            if (!d) return '';
+                            const parts = d.split('-');
+                            return parts[2] + '/' + parts[1];
+                        },
+                        async setField(field, value, memberObj = null) {
+                            const prev = this[field];
+                            this[field] = value;
+                            if (field === 'assignee_id') {
+                                this.assignee_name = memberObj?.name || null;
+                                this.assignee_initials = memberObj?.initials || null;
+                            }
+                            this.open.status = this.open.priority = this.open.assignee = false;
+                            this.saving = true; this.errorMsg = '';
+                            try {
+                                const res = await fetch(config.quickUrl, {
+                                    method: 'PATCH',
+                                    headers: {
+                                        'X-CSRF-TOKEN': this.csrf,
+                                        'Accept': 'application/json',
+                                        'Content-Type': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                    },
+                                    body: JSON.stringify({ [field]: value }),
+                                });
+                                if (!res.ok) throw new Error('Request failed');
+                            } catch (e) {
+                                this[field] = prev;
+                                this.errorMsg = 'Lưu thất bại';
+                                setTimeout(() => this.errorMsg = '', 2000);
+                            } finally {
+                                this.saving = false;
+                            }
+                        },
+                    };
+                }
+            </script>
 
             {{-- Tailwind safelist --}}
             <div style="display:none" aria-hidden="true" class="bg-tertiary border-tertiary line-through text-neutral text-primary hover:border-secondary bg-danger text-danger"></div>
@@ -607,20 +758,52 @@
                 $memberNames = $members->pluck('name')->values()->all();
                 $renderCommentBody = function ($text) use ($memberNames) {
                     $escaped = e($text);
-                    if (empty($memberNames)) return nl2br($escaped);
-                    usort($memberNames, fn($a, $b) => strlen($b) - strlen($a));
-                    foreach ($memberNames as $name) {
-                        $escapedName = e($name);
-                        $pattern = '/@' . preg_quote($escapedName, '/') . '\b/u';
-                        $escaped = preg_replace($pattern, '<span class="inline-block px-1.5 py-0.5 rounded bg-blue-100 text-secondary font-medium">@' . $escapedName . '</span>', $escaped);
+                    // Basic markdown: **bold**, *italic*, `code`, lists, links
+                    $escaped = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', $escaped);
+                    $escaped = preg_replace('/(?<!\*)\*([^*\s].*?)\*(?!\*)/u', '<em>$1</em>', $escaped);
+                    $escaped = preg_replace('/`([^`]+)`/u', '<code class="px-1 bg-surface-alt rounded text-[12px]">$1</code>', $escaped);
+                    $escaped = preg_replace('/(?<![\w])(https?:\/\/[^\s<]+)/u', '<a href="$1" target="_blank" class="text-secondary hover:underline">$1</a>', $escaped);
+                    // Bullet list: lines starting with "- "
+                    $escaped = preg_replace_callback('/(?:^|\n)((?:-\s.+(?:\n|$))+)/u', function ($m) {
+                        $items = preg_split('/\n/', trim($m[1]));
+                        $lis = array_map(fn($l) => '<li>' . preg_replace('/^-\s+/', '', $l) . '</li>', $items);
+                        return "\n<ul class=\"list-disc list-inside ml-2 my-1\">" . implode('', $lis) . '</ul>';
+                    }, $escaped);
+                    // @mentions
+                    if (!empty($memberNames)) {
+                        $sorted = $memberNames;
+                        usort($sorted, fn($a, $b) => strlen($b) - strlen($a));
+                        foreach ($sorted as $name) {
+                            $escapedName = e($name);
+                            $pattern = '/@' . preg_quote($escapedName, '/') . '\b/u';
+                            $escaped = preg_replace($pattern, '<span class="inline-block px-1.5 py-0.5 rounded bg-blue-100 text-secondary font-medium">@' . $escapedName . '</span>', $escaped);
+                        }
                     }
                     return nl2br($escaped);
                 };
             @endphp
 
-            <div class="bg-white rounded-xl border border-border p-5">
-                <h3 class="text-sm font-semibold text-primary mb-4">Activity & Comments</h3>
-                <div class="space-y-4">
+            <div class="bg-white rounded-xl border border-border p-5" x-data="{ tab: 'all' }">
+                {{-- Tabs --}}
+                <div class="flex items-center gap-1 border-b border-border mb-4">
+                    @php
+                        $commentsCount = $task->comments->count();
+                        $filesCount    = $allFiles->count();
+                        $totalCount    = $commentsCount + $filesCount;
+                    @endphp
+                    <button @click="tab = 'all'" :class="tab === 'all' ? 'text-primary border-primary' : 'text-neutral border-transparent hover:text-primary'" class="px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5">
+                        All <span class="text-[10px] text-neutral">{{ $totalCount }}</span>
+                    </button>
+                    <button @click="tab = 'comments'" :class="tab === 'comments' ? 'text-primary border-primary' : 'text-neutral border-transparent hover:text-primary'" class="px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5">
+                        Comments <span class="text-[10px] text-neutral">{{ $commentsCount }}</span>
+                    </button>
+                    <button @click="tab = 'files'" :class="tab === 'files' ? 'text-primary border-primary' : 'text-neutral border-transparent hover:text-primary'" class="px-3 py-2 text-xs font-medium border-b-2 transition flex items-center gap-1.5">
+                        Files <span class="text-[10px] text-neutral">{{ $filesCount }}</span>
+                    </button>
+                </div>
+
+                {{-- All & Comments tabs share the comments list --}}
+                <div x-show="tab === 'all' || tab === 'comments'" class="space-y-4">
                     @forelse($task->comments as $comment)
                         @php
                             $authorName = $comment->member?->name ?? $comment->author_name ?? 'Unknown';
@@ -661,15 +844,75 @@
                     @endforelse
                 </div>
 
+                {{-- Files tab --}}
+                <div x-show="tab === 'files'" x-cloak class="space-y-2">
+                    @forelse($allFiles as $file)
+                        <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-alt transition group border border-border-light">
+                            <div class="w-9 h-9 bg-surface-alt rounded flex items-center justify-center flex-shrink-0">
+                                <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                            </div>
+                            <a href="{{ route('files.show', $file) }}" target="_blank" class="flex-1 min-w-0">
+                                <p class="text-sm font-medium text-primary truncate hover:text-secondary transition">{{ $file->original_name }}</p>
+                                <p class="text-[11px] text-neutral">
+                                    {{ $file->sizeForHumans() }} · {{ $file->created_at->diffForHumans() }}
+                                    @if($file->comment_id)
+                                        <span class="ml-1 text-[10px] px-1 rounded bg-blue-50 text-secondary">from comment</span>
+                                    @endif
+                                </p>
+                            </a>
+                            <a href="{{ route('files.show', ['file' => $file, 'download' => 1]) }}" class="p-1.5 rounded hover:bg-blue-50 opacity-60 hover:opacity-100 transition" title="Tải xuống">
+                                <svg class="w-3.5 h-3.5 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            </a>
+                            @if($canManage)
+                                <button type="button" onclick="if(confirm('Xóa file này?')) deleteResource('{{ route('files.destroy', $file) }}', window.location.href)" class="p-1.5 rounded hover:bg-red-50 opacity-60 hover:opacity-100 transition" title="Xóa">
+                                    <svg class="w-3.5 h-3.5 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            @endif
+                        </div>
+                    @empty
+                        <p class="text-xs text-neutral text-center py-4">Chưa có file nào</p>
+                    @endforelse
+                </div>
+
                 <div class="mt-4 pt-4 border-t border-border" x-data="commentBox({ members: {{ Js::from($memberNames) }} })">
-                    <form action="{{ route('comments.store', $task) }}" method="POST" enctype="multipart/form-data" class="space-y-2" @submit="onSubmit($event)">
+                    <form action="{{ route('comments.store', $task) }}" method="POST" enctype="multipart/form-data" class="border border-border rounded-lg focus-within:border-secondary transition" @submit="onSubmit($event)">
                         @csrf
+                        {{-- Formatting toolbar --}}
+                        <div class="flex items-center gap-0.5 px-2 py-1 border-b border-border-light">
+                            <button type="button" @click="wrap('**','**')" title="Bold (Ctrl+B)" class="p-1.5 rounded hover:bg-surface-alt transition">
+                                <svg class="w-3.5 h-3.5 text-neutral" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4h5.5a3.5 3.5 0 012.71 5.71A3.75 3.75 0 0111 16H5V4zm2 2v3h3a1.5 1.5 0 100-3H7zm0 5v3h3.5a1.5 1.5 0 100-3H7z"/></svg>
+                            </button>
+                            <button type="button" @click="wrap('*','*')" title="Italic (Ctrl+I)" class="p-1.5 rounded hover:bg-surface-alt transition">
+                                <svg class="w-3.5 h-3.5 text-neutral" fill="currentColor" viewBox="0 0 20 20"><path d="M8 3h7v2h-2.5l-3 10H12v2H5v-2h2.5l3-10H8V3z"/></svg>
+                            </button>
+                            <button type="button" @click="wrap('`','`')" title="Code" class="p-1.5 rounded hover:bg-surface-alt transition">
+                                <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                            </button>
+                            <span class="w-px h-4 bg-border mx-1"></span>
+                            <button type="button" @click="prefixLines('- ')" title="Bullet list" class="p-1.5 rounded hover:bg-surface-alt transition">
+                                <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                            </button>
+                            <button type="button" @click="insertLink()" title="Link" class="p-1.5 rounded hover:bg-surface-alt transition">
+                                <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                            </button>
+                            <span class="w-px h-4 bg-border mx-1"></span>
+                            <button type="button" @click="insertAt('@')" title="Mention" class="p-1.5 rounded hover:bg-surface-alt transition">
+                                <span class="text-[12px] font-semibold text-neutral">@</span>
+                            </button>
+                            <label class="p-1.5 rounded hover:bg-surface-alt transition cursor-pointer" title="Đính kèm tệp">
+                                <input type="file" name="attachments[]" multiple class="hidden" @change="onFilesPicked($event)">
+                                <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                            </label>
+                            <div class="flex-1"></div>
+                            <span class="text-[10px] text-neutral italic hidden sm:inline">**bold** *italic* `code`</span>
+                        </div>
+
                         <div class="relative">
                             <textarea name="body" x-model="body" x-ref="bodyInput"
                                       @input="onInput($event)" @keydown="onKeyDown($event)"
-                                      placeholder="Viết comment... gõ @ để tag thành viên"
-                                      rows="2" maxlength="2000"
-                                      class="w-full px-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-secondary transition resize-y"
+                                      placeholder="Viết comment... gõ @ để tag thành viên, hỗ trợ **bold** *italic* `code`"
+                                      rows="3" maxlength="2000"
+                                      class="w-full px-3 py-2 text-sm outline-none resize-y border-0"
                                       required></textarea>
 
                             <div x-show="showMention && filteredMembers.length > 0" x-cloak
@@ -684,21 +927,17 @@
                             </div>
                         </div>
 
-                        <div class="flex items-center gap-2">
-                            <label class="cursor-pointer p-2 rounded-lg hover:bg-surface-alt transition" title="Đính kèm tệp">
-                                <input type="file" name="attachments[]" multiple class="hidden" @change="onFilesPicked($event)">
-                                <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-                            </label>
+                        <div class="flex items-center gap-2 px-2 py-2 border-t border-border-light">
                             <template x-for="(f, i) in pickedFiles" :key="i">
                                 <span class="inline-flex items-center gap-1 px-2 py-1 bg-surface-alt rounded text-[11px] text-primary">
                                     <span class="truncate max-w-[140px]" x-text="f.name"></span>
                                 </span>
                             </template>
                             <div class="flex-1"></div>
-                            <button type="submit" class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-light transition">Send</button>
+                            <span class="text-[10px] text-neutral">Posting as <span class="text-primary">{{ session('user_name', 'Unknown') }}</span></span>
+                            <button type="submit" class="px-4 py-1.5 bg-primary text-white text-xs font-medium rounded-md hover:bg-primary-light transition">Send</button>
                         </div>
                     </form>
-                    <p class="text-[10px] text-neutral mt-1">Posting as {{ session('user_name', 'Unknown') }}</p>
                 </div>
             </div>
 
@@ -734,6 +973,12 @@
                         },
 
                         onKeyDown(e) {
+                            // Keyboard shortcuts for formatting
+                            if ((e.ctrlKey || e.metaKey) && !this.showMention) {
+                                if (e.key === 'b' || e.key === 'B') { e.preventDefault(); this.wrap('**','**'); return; }
+                                if (e.key === 'i' || e.key === 'I') { e.preventDefault(); this.wrap('*','*'); return; }
+                                if (e.key === 'k' || e.key === 'K') { e.preventDefault(); this.insertLink(); return; }
+                            }
                             if (!this.showMention) return;
                             if (e.key === 'ArrowDown') {
                                 e.preventDefault();
@@ -747,6 +992,42 @@
                             } else if (e.key === 'Escape') {
                                 this.showMention = false;
                             }
+                        },
+
+                        wrap(before, after) {
+                            const el = this.$refs.bodyInput;
+                            const s = el.selectionStart, e = el.selectionEnd;
+                            const selected = this.body.slice(s, e) || 'text';
+                            this.body = this.body.slice(0, s) + before + selected + after + this.body.slice(e);
+                            this.$nextTick(() => { el.focus(); el.setSelectionRange(s + before.length, s + before.length + selected.length); });
+                        },
+                        prefixLines(prefix) {
+                            const el = this.$refs.bodyInput;
+                            const s = el.selectionStart, e = el.selectionEnd;
+                            // expand to whole lines
+                            const lineStart = this.body.lastIndexOf('\n', s - 1) + 1;
+                            const lineEndIdx = this.body.indexOf('\n', e);
+                            const lineEnd = lineEndIdx === -1 ? this.body.length : lineEndIdx;
+                            const block = this.body.slice(lineStart, lineEnd) || 'item';
+                            const newBlock = block.split('\n').map(l => l.startsWith(prefix) ? l : prefix + l).join('\n');
+                            this.body = this.body.slice(0, lineStart) + newBlock + this.body.slice(lineEnd);
+                            this.$nextTick(() => { el.focus(); el.setSelectionRange(lineStart, lineStart + newBlock.length); });
+                        },
+                        insertLink() {
+                            const url = window.prompt('URL:');
+                            if (!url) return;
+                            const el = this.$refs.bodyInput;
+                            const s = el.selectionStart, e = el.selectionEnd;
+                            const sel = this.body.slice(s, e) || url;
+                            const inserted = sel === url ? url : sel + ' ' + url;
+                            this.body = this.body.slice(0, s) + inserted + this.body.slice(e);
+                            this.$nextTick(() => { el.focus(); el.setSelectionRange(s + inserted.length, s + inserted.length); });
+                        },
+                        insertAt(ch) {
+                            const el = this.$refs.bodyInput;
+                            const s = el.selectionStart;
+                            this.body = this.body.slice(0, s) + ch + this.body.slice(s);
+                            this.$nextTick(() => { el.focus(); el.setSelectionRange(s + 1, s + 1); this.onInput({ target: el }); });
                         },
 
                         pickMention(name) {
@@ -927,55 +1208,91 @@
                 })();
             </script>
 
-            <div class="bg-white rounded-xl border border-border p-5 space-y-4">
-                <h3 class="text-sm font-semibold text-primary">Attributes</h3>
+            {{-- Properties (collapsible details + audit footer) --}}
+            <div class="bg-white rounded-xl border border-border p-5" x-data="{ detailsOpen: true, projectOpen: true }">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-semibold text-primary">Properties</h3>
+                    <span class="text-[10px] text-neutral">Updated {{ $task->updated_at->diffForHumans() }}</span>
+                </div>
 
-                <div>
-                    <label class="text-[10px] font-semibold text-neutral uppercase tracking-wider">Assignee</label>
-                    <div class="flex items-center gap-2 mt-1">
-                        @if($task->assignee)
-                            <div class="w-7 h-7 rounded-full bg-secondary flex items-center justify-center text-white text-[10px] font-semibold">{{ $task->assignee->initials() }}</div>
-                            <span class="text-sm text-primary">{{ $task->assignee->name }}</span>
-                        @else
-                            <span class="text-sm text-neutral">Unassigned</span>
-                        @endif
+                {{-- Details section --}}
+                <button @click="detailsOpen = !detailsOpen" class="w-full flex items-center justify-between py-1.5 text-xs font-medium text-primary hover:text-secondary transition">
+                    <span class="flex items-center gap-1.5">
+                        <svg class="w-3 h-3 transition" :class="detailsOpen ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        Details
+                    </span>
+                </button>
+                <div x-show="detailsOpen" x-cloak class="space-y-2 mt-1 pl-4">
+                    <div class="flex items-center gap-2 text-xs">
+                        <svg class="w-3.5 h-3.5 text-neutral flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064"/></svg>
+                        <span class="text-neutral w-20 flex-shrink-0">Department</span>
+                        <span class="text-primary truncate">{{ $task->department?->name ?? '—' }}</span>
+                    </div>
+                    <div class="flex items-start gap-2 text-xs">
+                        <svg class="w-3.5 h-3.5 text-neutral flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                        <span class="text-neutral w-20 flex-shrink-0">Tags</span>
+                        <div class="flex flex-wrap gap-1 flex-1">
+                            @forelse($task->tags as $tag)
+                                <span class="text-[10px] font-medium px-2 py-0.5 rounded" style="background: {{ $tag->color }}20; color: {{ $tag->color }}">{{ $tag->name }}</span>
+                            @empty
+                                <span class="text-neutral text-[11px]">—</span>
+                            @endforelse
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <svg class="w-3.5 h-3.5 text-neutral flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        <span class="text-neutral w-20 flex-shrink-0">Visibility</span>
+                        <span class="text-primary capitalize">{{ $task->visibility }}</span>
                     </div>
                 </div>
 
-                <div>
-                    <label class="text-[10px] font-semibold text-neutral uppercase tracking-wider">Priority</label>
-                    @php
-                        $priorityColors = ['urgent' => 'bg-red-100 text-danger', 'high' => 'bg-amber-100 text-amber-700', 'medium' => 'bg-blue-100 text-secondary', 'low' => 'bg-gray-100 text-neutral'];
-                    @endphp
-                    <div class="mt-1">
-                        <span class="text-xs font-medium px-2 py-1 rounded capitalize {{ $priorityColors[$task->priority] ?? '' }}">{{ $task->priority }}</span>
+                {{-- Project structure (if available) --}}
+                @if($task->project || $task->branch_id)
+                <button @click="projectOpen = !projectOpen" class="w-full flex items-center justify-between py-1.5 mt-3 text-xs font-medium text-primary hover:text-secondary transition">
+                    <span class="flex items-center gap-1.5">
+                        <svg class="w-3 h-3 transition" :class="projectOpen ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        Project structure
+                    </span>
+                </button>
+                <div x-show="projectOpen" x-cloak class="space-y-2 mt-1 pl-4">
+                    @if($task->project)
+                    <div class="flex items-center gap-2 text-xs">
+                        <svg class="w-3.5 h-3.5 text-neutral flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                        <span class="text-neutral w-20 flex-shrink-0">Project</span>
+                        <span class="text-primary truncate">{{ $task->project->name }}</span>
                     </div>
+                    @endif
                 </div>
+                @endif
 
-                <div>
-                    <label class="text-[10px] font-semibold text-neutral uppercase tracking-wider">Due Date</label>
-                    <p class="text-sm text-primary mt-1">{{ $task->due_date?->format('M d, Y') ?? '—' }}</p>
-                </div>
-
-                <div>
-                    <label class="text-[10px] font-semibold text-neutral uppercase tracking-wider">Department</label>
-                    <p class="text-sm text-primary mt-1">{{ $task->department?->name ?? '—' }}</p>
-                </div>
-
-                <div>
-                    <label class="text-[10px] font-semibold text-neutral uppercase tracking-wider">Tags & Labels</label>
-                    <div class="flex flex-wrap gap-1 mt-1">
-                        @forelse($task->tags as $tag)
-                            <span class="text-[10px] font-medium px-2 py-0.5 rounded" style="background: {{ $tag->color }}20; color: {{ $tag->color }}">{{ $tag->name }}</span>
-                        @empty
-                            <span class="text-xs text-neutral">No tags</span>
-                        @endforelse
+                {{-- Audit footer --}}
+                <div class="mt-4 pt-3 border-t border-border-light space-y-1.5">
+                    @if($task->created_by)
+                    <div class="flex items-center gap-2 text-[11px] text-neutral">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        <span>Tạo bởi <span class="text-primary font-medium">{{ $task->created_by }}</span></span>
                     </div>
-                </div>
-
-                <div>
-                    <label class="text-[10px] font-semibold text-neutral uppercase tracking-wider">Visibility</label>
-                    <p class="text-sm text-primary mt-1 capitalize">{{ $task->visibility }}</p>
+                    @endif
+                    <div class="flex items-center gap-2 text-[11px] text-neutral">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Tạo lúc <span class="text-primary">{{ $task->created_at->format('d/m/Y H:i') }}</span></span>
+                    </div>
+                    <div class="flex items-center gap-2 text-[11px] text-neutral">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        <span>Cập nhật <span class="text-primary">{{ $task->updated_at->format('d/m/Y H:i') }}</span></span>
+                    </div>
+                    @if($task->done_at)
+                    <div class="flex items-center gap-2 text-[11px] text-neutral">
+                        <svg class="w-3 h-3 flex-shrink-0 text-tertiary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span>Hoàn thành <span class="text-primary">{{ $task->done_at->format('d/m/Y H:i') }}</span></span>
+                    </div>
+                    @endif
+                    @if($task->cancelled_at)
+                    <div class="flex items-center gap-2 text-[11px] text-neutral">
+                        <svg class="w-3 h-3 flex-shrink-0 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <span>Hủy lúc <span class="text-primary">{{ $task->cancelled_at->format('d/m/Y H:i') }}</span></span>
+                    </div>
+                    @endif
                 </div>
             </div>
 

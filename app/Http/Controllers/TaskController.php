@@ -347,6 +347,53 @@ class TaskController extends Controller
         return redirect()->back()->with('success', 'Status updated.');
     }
 
+    public function quickUpdate(Request $request, Task $task)
+    {
+        $validated = $request->validate([
+            'status'        => 'sometimes|in:todo,in_progress,review,done,cancelled',
+            'priority'      => 'sometimes|in:low,medium,high,urgent',
+            'assignee_id'   => 'sometimes|nullable|exists:team_members,id',
+            'start_date'    => 'sometimes|nullable|date',
+            'due_date'      => 'sometimes|nullable|date',
+        ]);
+
+        // Handle status side-effects (done_at / cancelled_at)
+        if (array_key_exists('status', $validated)) {
+            if ($validated['status'] === 'done') {
+                $validated['done_at'] = $task->done_at ?? now();
+                $validated['cancelled_at'] = null;
+                $validated['cancel_reason'] = null;
+                if (!$task->subtasks()->exists()) {
+                    $validated['progress'] = 100;
+                }
+            } elseif ($validated['status'] === 'cancelled') {
+                $validated['cancelled_at'] = $task->cancelled_at ?? now();
+                $validated['done_at'] = null;
+            } else {
+                $validated['done_at'] = null;
+                $validated['cancelled_at'] = null;
+                $validated['cancel_reason'] = null;
+            }
+        }
+
+        $task->update($validated);
+
+        $task->load('assignee');
+
+        return response()->json([
+            'success'   => true,
+            'status'    => $task->status,
+            'priority'  => $task->priority,
+            'assignee'  => $task->assignee ? [
+                'id'       => $task->assignee->id,
+                'name'     => $task->assignee->name,
+                'initials' => $task->assignee->initials(),
+            ] : null,
+            'start_date' => $task->start_date?->format('Y-m-d'),
+            'due_date'   => $task->due_date?->format('Y-m-d'),
+        ]);
+    }
+
     public function cancelSubtask(Request $request, Task $task)
     {
         $validated = $request->validate([

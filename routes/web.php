@@ -41,6 +41,7 @@ Route::middleware('simple.auth')->group(function () {
         Route::post('/{task}/subtasks', [TaskController::class, 'storeSubtask'])->name('subtasks.store');
         Route::patch('/{task}/subtask-fields', [TaskController::class, 'updateSubtask'])->name('subtasks.update');
         Route::patch('/{task}/cancel', [TaskController::class, 'cancelSubtask'])->name('subtasks.cancel');
+        Route::patch('/{task}/quick', [TaskController::class, 'quickUpdate'])->name('quickUpdate');
         Route::patch('/{task}/archive', [TaskController::class, 'archiveTask'])->name('archiveTask');
         Route::patch('/{task}/unarchive', [TaskController::class, 'unarchiveTask'])->name('unarchiveTask');
     });
