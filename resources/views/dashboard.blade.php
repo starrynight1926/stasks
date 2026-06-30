@@ -153,6 +153,55 @@
         </div>
     </div>
 
+    {{-- All work items, grouped by status (Plane-style) --}}
+    @php
+        $priorityColors = ['urgent' => 'text-danger', 'high' => 'text-warning', 'medium' => 'text-secondary', 'low' => 'text-neutral'];
+    @endphp
+    <div class="mt-6 bg-white rounded-xl border border-border">
+        <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <h3 class="text-sm font-semibold text-primary">All Work Items</h3>
+                <span class="text-[10px] px-1.5 py-0.5 bg-surface-alt text-neutral rounded">{{ $totalTasks }}</span>
+            </div>
+            <a href="{{ route('tasks.board') }}" class="text-xs text-secondary hover:underline">Go to board →</a>
+        </div>
+        <div class="p-3 space-y-3">
+            @foreach($allTasksByStatus as $statusKey => $col)
+                <div x-data="{ collapsed: false }" class="border border-border-light rounded-lg overflow-hidden">
+                    <button type="button" @click="collapsed = !collapsed"
+                            class="w-full flex items-center gap-2 px-3 py-2 bg-surface-alt hover:bg-surface transition text-left">
+                        <svg class="w-3 h-3 text-neutral transition-transform" :class="collapsed ? '-rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        <span class="w-2 h-2 rounded-full" style="background:{{ $col['meta']['dot'] }}"></span>
+                        <span class="text-xs font-semibold text-primary">{{ $col['meta']['label'] }}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 bg-white text-neutral rounded">{{ $col['tasks']->count() }}</span>
+                    </button>
+                    <div x-show="!collapsed" class="divide-y divide-border-light">
+                        @forelse($col['tasks'] as $t)
+                            <button type="button" @click="open({{ $t->id }})"
+                                    class="w-full flex items-center gap-3 px-3 py-2 hover:bg-surface-alt transition text-left">
+                                <span class="text-[10px] text-neutral font-mono flex-shrink-0">#{{ $t->id }}</span>
+                                <span class="text-sm text-primary flex-1 min-w-0 truncate">{{ $t->title }}</span>
+                                <span class="text-[10px] font-medium capitalize flex-shrink-0 {{ $priorityColors[$t->priority] ?? 'text-neutral' }}">{{ $t->priority }}</span>
+                                @if($t->assignee)
+                                    <span class="w-5 h-5 rounded-full bg-secondary text-white text-[9px] font-semibold flex items-center justify-center flex-shrink-0" title="{{ $t->assignee->name }}">{{ $t->assignee->initials() }}</span>
+                                @else
+                                    <span class="w-5 h-5 rounded-full bg-surface-alt border border-border flex items-center justify-center flex-shrink-0" title="Unassigned">
+                                        <svg class="w-3 h-3 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    </span>
+                                @endif
+                                @if($t->due_date)
+                                    <span class="text-[10px] text-neutral flex-shrink-0 hidden sm:inline">{{ $t->due_date->format('d/m') }}</span>
+                                @endif
+                            </button>
+                        @empty
+                            <p class="text-xs text-neutral px-3 py-3 italic">No tasks</p>
+                        @endforelse
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+
     {{-- Slide-over task summary panel --}}
     <div x-show="isOpen" x-cloak class="fixed inset-0 z-50" @click.self="close()">
         <div class="absolute inset-0 bg-black/40" x-show="isOpen" x-transition.opacity></div>
