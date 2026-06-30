@@ -89,8 +89,14 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <h3 class="text-sm font-semibold text-primary">{{ $member->name }}</h3>
-                        <p class="text-xs text-neutral">{{ $member->role }}</p>
+                        <p class="text-xs text-neutral">{{ $member->role }}@if($member->username) · <span class="text-secondary">{{ '@' . $member->username }}</span>@endif</p>
                         <p class="text-xs text-secondary">{{ $member->position }}</p>
+                        @if($member->role_id || $member->branch_id)
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                @if($member->systemRole)<span class="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 font-medium">{{ $member->systemRole->name }}</span>@endif
+                                @if($member->branch)<span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-secondary font-medium">{{ $member->branch->name }}</span>@endif
+                            </div>
+                        @endif
                     </div>
                     <div class="flex items-center gap-1">
                         <span class="w-2 h-2 rounded-full {{ $member->status === 'active' ? 'bg-tertiary' : 'bg-neutral-light' }}"></span>
@@ -193,6 +199,32 @@
                     <div>
                         <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Phone</label>
                         <input type="text" name="phone" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Cơ sở</label>
+                        <select name="branch_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                            <option value="">— Không gán —</option>
+                            @foreach($branches as $br)<option value="{{ $br->id }}">{{ $br->name }}</option>@endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Vai trò (Role hệ thống)</label>
+                        <select name="role_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                            <option value="">— Không gán —</option>
+                            @foreach($roles as $r)<option value="{{ $r->id }}">{{ $r->name }}</option>@endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Username (đăng nhập)</label>
+                        <input type="text" name="username" placeholder="vd: nv4" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Mật khẩu</label>
+                        <input type="text" name="password" placeholder="Để trống nếu chưa cấp" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
                     </div>
                 </div>
                 <div class="flex gap-3 pt-2">

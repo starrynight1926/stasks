@@ -60,7 +60,7 @@
                         </div>
                         <div class="flex-1">
                             <h3 class="text-base font-semibold text-primary">{{ $dept->name }}</h3>
-                            <p class="text-xs text-neutral">{{ $dept->code }}</p>
+                            <p class="text-xs text-neutral">{{ $dept->code }}@if($dept->branch) · {{ $dept->branch->name }}@endif</p>
                         </div>
                         <div class="flex items-center gap-1">
                             <button @click="editing = true" class="p-1.5 rounded-lg hover:bg-surface-alt transition" title="Edit">
@@ -134,6 +134,13 @@
                             <input type="text" name="head_name" value="{{ $dept->head_name }}" class="w-full px-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
                         </div>
                     </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase mb-1">Cơ sở</label>
+                        <select name="branch_id" class="w-full px-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-secondary">
+                            <option value="">— Không gán —</option>
+                            @foreach($branches as $br)<option value="{{ $br->id }}" @selected($dept->branch_id == $br->id)>{{ $br->name }}</option>@endforeach
+                        </select>
+                    </div>
                     <div class="flex gap-2 pt-2">
                         <button type="button" @click="editing = false" class="flex-1 px-3 py-2 text-xs font-medium text-neutral border border-border rounded-lg hover:bg-surface-alt transition">Cancel</button>
                         <button type="submit" class="flex-1 px-3 py-2 text-xs font-medium text-white bg-primary rounded-lg hover:bg-primary-light transition">Save</button>
@@ -190,6 +197,13 @@
                         <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Department Head</label>
                         <input type="text" name="head_name" placeholder="Head of department" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
                     </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Cơ sở</label>
+                    <select name="branch_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary">
+                        <option value="">— Không gán —</option>
+                        @foreach($branches as $br)<option value="{{ $br->id }}">{{ $br->name }}</option>@endforeach
+                    </select>
                 </div>
                 <div class="flex gap-3 pt-2">
                     <button type="button" onclick="document.getElementById('createDeptModal').classList.add('hidden')" class="flex-1 px-4 py-2.5 text-sm font-medium text-neutral border border-border rounded-lg hover:bg-surface-alt transition">Cancel</button>

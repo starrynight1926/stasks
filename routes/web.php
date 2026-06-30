@@ -5,6 +5,10 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\BranchController;
+use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\TeamGroupController;
 use App\Http\Controllers\FileController;
 use App\Http\Controllers\TagController;
 use App\Http\Controllers\CommentController;
@@ -33,6 +37,7 @@ Route::middleware('simple.auth')->group(function () {
         Route::post('/', [TaskController::class, 'store'])->name('store');
         Route::post('/bulk-destroy', [TaskController::class, 'bulkDestroy'])->name('bulkDestroy');
         Route::post('/bulk-archive', [TaskController::class, 'bulkArchive'])->name('bulkArchive');
+        Route::get('/{task}/summary', [TaskController::class, 'summary'])->name('summary');
         Route::get('/{task}', [TaskController::class, 'show'])->name('show');
         Route::get('/{task}/edit', [TaskController::class, 'edit'])->name('edit');
         Route::put('/{task}', [TaskController::class, 'update'])->name('update');
@@ -62,6 +67,33 @@ Route::middleware('simple.auth')->group(function () {
     Route::post('/departments/bulk-destroy', [DepartmentController::class, 'bulkDestroy'])->name('departments.bulkDestroy');
     Route::put('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
     Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
+
+    Route::prefix('organization')->name('org.')->group(function () {
+        Route::get('/companies', [CompanyController::class, 'index'])->name('companies.index');
+        Route::post('/companies', [CompanyController::class, 'store'])->name('companies.store');
+        Route::put('/companies/{company}', [CompanyController::class, 'update'])->name('companies.update');
+        Route::delete('/companies/{company}', [CompanyController::class, 'destroy'])->name('companies.destroy');
+        Route::post('/companies/bulk-destroy', [CompanyController::class, 'bulkDestroy'])->name('companies.bulkDestroy');
+
+        Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
+        Route::post('/branches', [BranchController::class, 'store'])->name('branches.store');
+        Route::put('/branches/{branch}', [BranchController::class, 'update'])->name('branches.update');
+        Route::delete('/branches/{branch}', [BranchController::class, 'destroy'])->name('branches.destroy');
+        Route::post('/branches/bulk-destroy', [BranchController::class, 'bulkDestroy'])->name('branches.bulkDestroy');
+
+        Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+        Route::post('/roles', [RoleController::class, 'store'])->name('roles.store');
+        Route::put('/roles/{role}', [RoleController::class, 'update'])->name('roles.update');
+        Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
+        Route::post('/roles/{role}/permissions', [RoleController::class, 'syncPermissions'])->name('roles.permissions');
+
+        Route::get('/teams-group', [TeamGroupController::class, 'index'])->name('teams-group.index');
+        Route::post('/teams-group', [TeamGroupController::class, 'store'])->name('teams-group.store');
+        Route::put('/teams-group/{team}', [TeamGroupController::class, 'update'])->name('teams-group.update');
+        Route::delete('/teams-group/{team}', [TeamGroupController::class, 'destroy'])->name('teams-group.destroy');
+        Route::post('/teams-group/{team}/members', [TeamGroupController::class, 'attachMember'])->name('teams-group.attach');
+        Route::delete('/teams-group/{team}/members/{teamMember}', [TeamGroupController::class, 'detachMember'])->name('teams-group.detach');
+    });
 
     Route::get('/tags', [TagController::class, 'index'])->name('tags');
     Route::post('/tags', [TagController::class, 'store'])->name('tags.store');

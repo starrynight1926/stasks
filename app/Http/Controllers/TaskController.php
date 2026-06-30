@@ -165,6 +165,42 @@ class TaskController extends Controller
         return view('tasks.show', compact('task', 'members', 'canManage', 'allFiles'));
     }
 
+    public function summary(Task $task)
+    {
+        $task->load('assignee', 'tags', 'project', 'department', 'subtasks', 'parent');
+
+        $subtasksTotal = $task->subtasks->count();
+        $subtasksDone  = $task->subtasks->whereIn('status', ['done'])->count();
+
+        return response()->json([
+            'id'          => $task->id,
+            'title'       => $task->title,
+            'description' => $task->description,
+            'status'      => $task->status,
+            'priority'    => $task->priority,
+            'progress'    => (float) $task->progress,
+            'start_date'  => $task->start_date?->format('Y-m-d'),
+            'due_date'    => $task->due_date?->format('Y-m-d'),
+            'overdue'     => $task->due_date && $task->status !== 'done' && $task->due_date->isPast(),
+            'created_at'  => $task->created_at?->format('M d, Y H:i'),
+            'updated_at'  => $task->updated_at?->format('M d, Y H:i'),
+            'assignee'    => $task->assignee ? [
+                'id'       => $task->assignee->id,
+                'name'     => $task->assignee->name,
+                'initials' => $task->assignee->initials(),
+            ] : null,
+            'project'     => $task->project ? ['id' => $task->project->id, 'name' => $task->project->name] : null,
+            'department'  => $task->department ? ['id' => $task->department->id, 'name' => $task->department->name] : null,
+            'parent'      => $task->parent ? ['id' => $task->parent->id, 'title' => $task->parent->title] : null,
+            'tags'        => $task->tags->map(fn($t) => ['id' => $t->id, 'name' => $t->name, 'color' => $t->color])->values(),
+            'subtasks'    => [
+                'total'  => $subtasksTotal,
+                'done'   => $subtasksDone,
+            ],
+            'url'         => route('tasks.show', $task),
+        ]);
+    }
+
     public function edit(Task $task)
     {
         $task->load('tags', 'subtasks', 'dependencies');

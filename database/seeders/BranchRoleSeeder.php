@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Branch;
+use App\Models\Company;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\TeamMember;
@@ -17,11 +18,19 @@ class BranchRoleSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Default branch
+        // 1. Default company + branch
+        $company = Company::firstOrCreate(
+            ['name' => 'Công ty mặc định'],
+            ['code' => 'main', 'description' => 'Công ty được tạo tự động.']
+        );
+
         $branch = Branch::firstOrCreate(
             ['name' => 'Cơ sở chính'],
-            ['code' => 'main', 'address' => null, 'phone' => null]
+            ['code' => 'main', 'address' => null, 'phone' => null, 'company_id' => $company->id]
         );
+        if (!$branch->company_id) {
+            $branch->update(['company_id' => $company->id]);
+        }
 
         // 2. Permissions catalog
         foreach (PermissionCatalog::flat() as $row) {
@@ -46,6 +55,8 @@ class BranchRoleSeeder extends Seeder
             'comment.view','comment.create','comment.delete',
             'file.view','file.upload','file.download','file.delete',
             'member.view','department.view',
+            'branch.view','company.view',
+            'team.view','team.create','team.edit','team.assign_members',
         ];
         $managerRole = Role::firstOrCreate(
             ['name' => 'Manager'],
@@ -58,7 +69,7 @@ class BranchRoleSeeder extends Seeder
             'subtask.create','subtask.edit','subtask.toggle','subtask.cancel',
             'comment.view','comment.create',
             'file.view','file.upload','file.download',
-            'member.view','department.view',
+            'member.view','department.view','branch.view','company.view','team.view',
         ];
         $staffRole = Role::firstOrCreate(
             ['name' => 'Nhân viên'],
@@ -66,7 +77,7 @@ class BranchRoleSeeder extends Seeder
         );
         $staffRole->permissions()->sync(Permission::whereIn('key', $staffKeys)->pluck('id'));
 
-        $viewerKeys = ['task.view','comment.view','file.view','file.download','member.view','department.view'];
+        $viewerKeys = ['task.view','comment.view','file.view','file.download','member.view','department.view','branch.view','company.view','team.view'];
         $viewerRole = Role::firstOrCreate(
             ['name' => 'Khách (chỉ xem)'],
             ['description' => 'Chỉ xem, không thao tác.', 'is_default' => false]

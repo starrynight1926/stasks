@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Department;
 use Illuminate\Http\Request;
 
@@ -9,9 +10,10 @@ class DepartmentController extends Controller
 {
     public function index()
     {
-        $departments = Department::withCount('members')->get();
+        $departments = Department::with('branch')->withCount('members')->get();
+        $branches    = Branch::orderBy('name')->get();
 
-        return view('departments', compact('departments'));
+        return view('departments', compact('departments', 'branches'));
     }
 
     public function store(Request $request)
@@ -22,6 +24,7 @@ class DepartmentController extends Controller
             'color' => 'required|string|max:7',
             'description' => 'nullable|string|max:500',
             'head_name' => 'nullable|string|max:100',
+            'branch_id' => 'nullable|exists:branches,id',
         ]);
 
         $validated['member_count'] = 0;
@@ -41,6 +44,7 @@ class DepartmentController extends Controller
             'color' => 'required|string|max:7',
             'description' => 'nullable|string|max:500',
             'head_name' => 'nullable|string|max:100',
+            'branch_id' => 'nullable|exists:branches,id',
         ]);
 
         $department->update($validated);

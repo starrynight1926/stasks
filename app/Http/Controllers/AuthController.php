@@ -42,9 +42,9 @@ class AuthController extends Controller
 
         // 2) Member login: username + password match
         if ($username !== '') {
-            $member = TeamMember::with('role.permissions', 'branch')->where('username', $username)->first();
+            $member = TeamMember::with('systemRole.permissions', 'branch')->where('username', $username)->first();
             if ($member && $member->password && Hash::check($password, $member->password)) {
-                $perms = $member->role?->permissions->pluck('key')->all() ?? [];
+                $perms = $member->systemRole?->permissions->pluck('key')->all() ?? [];
                 session([
                     'authenticated' => true,
                     'user_name' => $member->name,
@@ -52,7 +52,7 @@ class AuthController extends Controller
                     'member_id' => $member->id,
                     'branch_id' => $member->branch_id,
                     'role_id' => $member->role_id,
-                    'role_name' => $member->role?->name,
+                    'role_name' => $member->systemRole?->name,
                     'permissions' => $perms,
                     'must_change_password' => (bool) $member->must_change_password,
                 ]);

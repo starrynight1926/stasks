@@ -75,6 +75,25 @@ class PermissionCatalog
                     'branch.delete'       => 'Xóa cơ sở',
                 ],
             ],
+            'company' => [
+                'label' => 'Công ty',
+                'permissions' => [
+                    'company.view'        => 'Xem công ty',
+                    'company.create'      => 'Tạo công ty',
+                    'company.edit'        => 'Sửa công ty',
+                    'company.delete'      => 'Xóa công ty',
+                ],
+            ],
+            'team' => [
+                'label' => 'Đội nhóm',
+                'permissions' => [
+                    'team.view'           => 'Xem đội nhóm',
+                    'team.create'         => 'Tạo đội nhóm',
+                    'team.edit'           => 'Sửa đội nhóm',
+                    'team.delete'         => 'Xóa đội nhóm',
+                    'team.assign_members' => 'Gán / gỡ thành viên',
+                ],
+            ],
             'role' => [
                 'label' => 'Vai trò / Quyền',
                 'permissions' => [

@@ -42,8 +42,8 @@
                  x-data="taskHeader({
                     quickUrl: '{{ route('tasks.quickUpdate', $task) }}',
                     init: {
-                        status: '{{ $task->status }}',
-                        priority: '{{ $task->priority }}',
+                        status: '{{ $task->status ?: 'todo' }}',
+                        priority: '{{ $task->priority ?: 'medium' }}',
                         assignee_id: {{ $task->assignee_id ? $task->assignee_id : 'null' }},
                         assignee_name: @json($task->assignee?->name),
                         assignee_initials: @json($task->assignee?->initials()),
@@ -68,73 +68,80 @@
                 </div>
 
                 {{-- Inline property chips bar --}}
+                @php
+                    $ssrStatus   = $statusMeta[$task->status]    ?? ['label' => $task->status,    'dot' => '#94A3B8'];
+                    $ssrPriority = $priorityMeta[$task->priority] ?? ['label' => $task->priority, 'color' => '#6B7280'];
+                    $ssrAssigneeName     = $task->assignee?->name;
+                    $ssrAssigneeInitials = $task->assignee?->initials();
+                    $ssrStartDate = $task->start_date?->format('d/m');
+                    $ssrDueDate   = $task->due_date?->format('d/m');
+                @endphp
                 <div class="flex items-center gap-2 flex-wrap mb-4">
                     {{-- Status --}}
                     <div class="relative" @click.outside="open.status = false">
-                        <button @click="open.status = !open.status" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition">
-                            <span class="w-2 h-2 rounded-full" :style="`background:${statusDot()}`"></span>
-                            <span x-text="statusLabel()" class="font-medium"></span>
+                        <button type="button" @click="open.status = !open.status" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition">
+                            <span class="w-2 h-2 rounded-full" style="background:{{ $ssrStatus['dot'] }}"></span>
+                            <span class="font-medium">{{ $ssrStatus['label'] }}</span>
                         </button>
                         <div x-show="open.status" x-cloak class="absolute z-20 top-full mt-1 left-0 bg-white border border-border rounded-lg shadow-lg py-1 min-w-[140px]">
-                            <template x-for="(meta, key) in STATUS_META" :key="key">
-                                <button type="button" @click="setField('status', key)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-alt transition flex items-center gap-2" :class="status === key ? 'bg-surface-alt font-medium' : ''">
-                                    <span class="w-2 h-2 rounded-full" :style="`background:${meta.dot}`"></span>
-                                    <span x-text="meta.label"></span>
+                            @foreach($statusMeta as $key => $meta)
+                                <button type="button" @click="setField('status', '{{ $key }}')" class="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-alt transition flex items-center gap-2 {{ $task->status === $key ? 'bg-surface-alt font-medium' : '' }}">
+                                    <span class="w-2 h-2 rounded-full" style="background:{{ $meta['dot'] }}"></span>
+                                    <span>{{ $meta['label'] }}</span>
                                 </button>
-                            </template>
+                            @endforeach
                         </div>
                     </div>
 
                     {{-- Priority --}}
                     <div class="relative" @click.outside="open.priority = false">
-                        <button @click="open.priority = !open.priority" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition">
-                            <svg class="w-3 h-3" :style="`color:${priorityColor()}`" fill="currentColor" viewBox="0 0 24 24"><path d="M2 21V3l20 9-20 9z"/></svg>
-                            <span x-text="priorityLabel()" class="font-medium capitalize"></span>
+                        <button type="button" @click="open.priority = !open.priority" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition">
+                            <svg class="w-3 h-3" style="color:{{ $ssrPriority['color'] }}" fill="currentColor" viewBox="0 0 24 24"><path d="M2 21V3l20 9-20 9z"/></svg>
+                            <span class="font-medium capitalize">{{ $ssrPriority['label'] }}</span>
                         </button>
                         <div x-show="open.priority" x-cloak class="absolute z-20 top-full mt-1 left-0 bg-white border border-border rounded-lg shadow-lg py-1 min-w-[120px]">
-                            <template x-for="(meta, key) in PRIORITY_META" :key="key">
-                                <button type="button" @click="setField('priority', key)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-alt transition flex items-center gap-2" :class="priority === key ? 'bg-surface-alt font-medium' : ''">
-                                    <svg class="w-3 h-3" :style="`color:${meta.color}`" fill="currentColor" viewBox="0 0 24 24"><path d="M2 21V3l20 9-20 9z"/></svg>
-                                    <span x-text="meta.label"></span>
+                            @foreach($priorityMeta as $key => $meta)
+                                <button type="button" @click="setField('priority', '{{ $key }}')" class="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-alt transition flex items-center gap-2 {{ $task->priority === $key ? 'bg-surface-alt font-medium' : '' }}">
+                                    <svg class="w-3 h-3" style="color:{{ $meta['color'] }}" fill="currentColor" viewBox="0 0 24 24"><path d="M2 21V3l20 9-20 9z"/></svg>
+                                    <span>{{ $meta['label'] }}</span>
                                 </button>
-                            </template>
+                            @endforeach
                         </div>
                     </div>
 
                     {{-- Assignee --}}
                     <div class="relative" @click.outside="open.assignee = false">
-                        <button @click="open.assignee = !open.assignee" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition">
-                            <template x-if="assignee_initials">
-                                <span class="w-4 h-4 rounded-full bg-secondary text-white text-[9px] font-semibold flex items-center justify-center" x-text="assignee_initials"></span>
-                            </template>
-                            <template x-if="!assignee_initials">
+                        <button type="button" @click="open.assignee = !open.assignee" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition">
+                            @if($ssrAssigneeInitials)
+                                <span class="w-4 h-4 rounded-full bg-secondary text-white text-[9px] font-semibold flex items-center justify-center">{{ $ssrAssigneeInitials }}</span>
+                            @else
                                 <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                            </template>
-                            <span x-text="assignee_name || 'Assignee'" :class="!assignee_name ? 'text-neutral' : ''"></span>
+                            @endif
+                            <span class="{{ $ssrAssigneeName ? '' : 'text-neutral' }}">{{ $ssrAssigneeName ?: 'Assignee' }}</span>
                         </button>
                         <div x-show="open.assignee" x-cloak class="absolute z-20 top-full mt-1 left-0 bg-white border border-border rounded-lg shadow-lg py-1 min-w-[200px] max-h-60 overflow-auto">
                             <button type="button" @click="setField('assignee_id', null)" class="w-full text-left px-3 py-1.5 text-xs text-neutral hover:bg-surface-alt transition">— Unassigned —</button>
-                            <template x-for="m in members" :key="m.id">
-                                <button type="button" @click="setField('assignee_id', m.id, m)" class="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-alt transition flex items-center gap-2" :class="assignee_id === m.id ? 'bg-surface-alt font-medium' : ''">
-                                    <span class="w-5 h-5 rounded-full bg-secondary text-white text-[10px] font-semibold flex items-center justify-center" x-text="m.initials"></span>
-                                    <span x-text="m.name"></span>
+                            @foreach($members as $m)
+                                <button type="button" @click="setField('assignee_id', {{ $m->id }})" class="w-full text-left px-3 py-1.5 text-xs hover:bg-surface-alt transition flex items-center gap-2 {{ $task->assignee_id === $m->id ? 'bg-surface-alt font-medium' : '' }}">
+                                    <span class="w-5 h-5 rounded-full bg-secondary text-white text-[10px] font-semibold flex items-center justify-center">{{ $m->initials() }}</span>
+                                    <span>{{ $m->name }}</span>
                                 </button>
-                            </template>
+                            @endforeach
                         </div>
                     </div>
 
                     {{-- Start date --}}
                     <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition cursor-pointer relative">
                         <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        <span x-text="start_date ? fmtDate(start_date) : 'Start date'" :class="!start_date ? 'text-neutral' : ''"></span>
-                        <input type="date" :value="start_date || ''" @change="setField('start_date', $event.target.value || null)" class="absolute inset-0 opacity-0 cursor-pointer">
+                        <span class="{{ $ssrStartDate ? '' : 'text-neutral' }}">{{ $ssrStartDate ?: 'Start date' }}</span>
+                        <input type="date" value="{{ $task->start_date?->format('Y-m-d') }}" @change="setField('start_date', $event.target.value || null)" class="absolute inset-0 opacity-0 cursor-pointer">
                     </label>
 
                     {{-- Due date --}}
                     <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:border-secondary transition cursor-pointer relative">
                         <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        <span x-text="due_date ? fmtDate(due_date) : 'Due date'" :class="!due_date ? 'text-neutral' : ''"></span>
-                        <input type="date" :value="due_date || ''" @change="setField('due_date', $event.target.value || null)" class="absolute inset-0 opacity-0 cursor-pointer">
+                        <span class="{{ $ssrDueDate ? '' : 'text-neutral' }}">{{ $ssrDueDate ?: 'Due date' }}</span>
+                        <input type="date" value="{{ $task->due_date?->format('Y-m-d') }}" @change="setField('due_date', $event.target.value || null)" class="absolute inset-0 opacity-0 cursor-pointer">
                     </label>
 
                     <span x-show="saving" class="text-[10px] text-neutral italic">Đang lưu…</span>
@@ -161,7 +168,7 @@
             </div>
 
             <script>
-                function taskHeader(config) {
+                window.taskHeader = function(config) {
                     const STATUS_META = {
                         todo:        { label: 'To Do',       dot: '#94A3B8' },
                         in_progress: { label: 'In Progress', dot: '#3B82F6' },
@@ -212,6 +219,8 @@
                                     body: JSON.stringify({ [field]: value }),
                                 });
                                 if (!res.ok) throw new Error('Request failed');
+                                window.location.reload();
+                                return;
                             } catch (e) {
                                 this[field] = prev;
                                 this.errorMsg = 'Lưu thất bại';
@@ -221,7 +230,12 @@
                             }
                         },
                     };
-                }
+                };
+                document.addEventListener('alpine:init', () => {
+                    if (window.Alpine && typeof Alpine.data === 'function') {
+                        Alpine.data('taskHeader', window.taskHeader);
+                    }
+                });
             </script>
 
             {{-- Tailwind safelist --}}

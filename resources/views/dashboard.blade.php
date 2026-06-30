@@ -1,7 +1,8 @@
 <x-layouts.app title="Dashboard">
+    <div x-data="taskSummaryPanel()" @keydown.escape.window="close()">
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-primary">Dashboard Overview</h1>
-        <p class="text-sm text-neutral mt-1">{{ $project?->name ?? 'Project Overview' }} — Tổng quan tiến độ dự án</p>
+        <p class="text-sm text-neutral mt-1">{{ $project?->name ?? 'Project Overview' }} — Tổng quan tiến độ dự án. <span class="text-secondary">Click task bất kỳ để xem tóm tắt.</span></p>
     </div>
 
     {{-- KPI Cards --}}
@@ -105,20 +106,18 @@
             </div>
             <div class="space-y-3">
                 @forelse($recentTasks as $task)
-                    <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-alt transition">
-                        @php
-                            $statusColors = ['todo' => 'bg-neutral', 'in_progress' => 'bg-secondary', 'review' => 'bg-warning', 'done' => 'bg-tertiary'];
-                        @endphp
-                        <div class="w-2 h-2 rounded-full {{ $statusColors[$task->status] ?? 'bg-neutral' }}"></div>
+                    @php
+                        $statusColors   = ['todo' => 'bg-neutral', 'in_progress' => 'bg-secondary', 'review' => 'bg-warning', 'done' => 'bg-tertiary'];
+                        $priorityColors = ['urgent' => 'text-danger', 'high' => 'text-warning', 'medium' => 'text-secondary', 'low' => 'text-neutral'];
+                    @endphp
+                    <button type="button" @click="open({{ $task->id }})" class="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-surface-alt transition text-left">
+                        <div class="w-2 h-2 rounded-full {{ $statusColors[$task->status] ?? 'bg-neutral' }} flex-shrink-0"></div>
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-primary truncate">{{ $task->title }}</p>
                             <p class="text-xs text-neutral">{{ $task->assignee?->name ?? 'Unassigned' }}</p>
                         </div>
-                        @php
-                            $priorityColors = ['urgent' => 'text-danger', 'high' => 'text-warning', 'medium' => 'text-secondary', 'low' => 'text-neutral'];
-                        @endphp
                         <span class="text-xs font-medium capitalize {{ $priorityColors[$task->priority] ?? 'text-neutral' }}">{{ $task->priority }}</span>
-                    </div>
+                    </button>
                 @empty
                     <p class="text-sm text-neutral text-center py-4">Chưa có task nào</p>
                 @endforelse
@@ -153,4 +152,199 @@
             </div>
         </div>
     </div>
+
+    {{-- Slide-over task summary panel --}}
+    <div x-show="isOpen" x-cloak class="fixed inset-0 z-50" @click.self="close()">
+        <div class="absolute inset-0 bg-black/40" x-show="isOpen" x-transition.opacity></div>
+        <aside class="absolute right-0 top-0 h-full w-full sm:w-[480px] bg-white shadow-2xl flex flex-col"
+               x-show="isOpen"
+               x-transition:enter="transition transform ease-out duration-200"
+               x-transition:enter-start="translate-x-full"
+               x-transition:enter-end="translate-x-0"
+               x-transition:leave="transition transform ease-in duration-150"
+               x-transition:leave-start="translate-x-0"
+               x-transition:leave-end="translate-x-full">
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-semibold uppercase tracking-wider text-neutral">Task Summary</span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <template x-if="data && data.url">
+                        <a :href="data.url" class="px-2 py-1 text-xs text-secondary hover:bg-surface-alt rounded transition">Open full →</a>
+                    </template>
+                    <button type="button" @click="close()" class="p-1.5 rounded-lg hover:bg-surface-alt transition" title="Close">
+                        <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Body --}}
+            <div class="flex-1 overflow-y-auto">
+                <template x-if="loading">
+                    <div class="p-8 text-center text-xs text-neutral">Loading…</div>
+                </template>
+                <template x-if="errorMsg">
+                    <div class="p-5 text-xs text-danger" x-text="errorMsg"></div>
+                </template>
+                <template x-if="data && !loading">
+                    <div class="p-5 space-y-5">
+                        {{-- Title --}}
+                        <div>
+                            <h2 class="text-lg font-bold text-primary leading-tight break-words" x-text="data.title"></h2>
+                            <template x-if="data.description">
+                                <p class="text-sm text-primary/70 mt-2 break-words whitespace-pre-wrap" x-text="data.description"></p>
+                            </template>
+                        </div>
+
+                        {{-- Details grid --}}
+                        <div class="bg-surface-alt rounded-lg p-3 space-y-2.5 text-xs">
+                            <div class="flex items-center gap-3">
+                                <span class="w-20 text-neutral flex-shrink-0">Status</span>
+                                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full font-medium"
+                                      :style="`background:${statusBg(data.status)};color:${statusFg(data.status)}`"
+                                      x-text="statusLabel(data.status)"></span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="w-20 text-neutral flex-shrink-0">Priority</span>
+                                <span class="inline-flex items-center gap-1.5 font-medium capitalize"
+                                      :style="`color:${priorityColor(data.priority)}`">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M2 21V3l20 9-20 9z"/></svg>
+                                    <span x-text="data.priority"></span>
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="w-20 text-neutral flex-shrink-0">Assignee</span>
+                                <template x-if="data.assignee">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="w-5 h-5 rounded-full bg-secondary text-white text-[10px] font-semibold flex items-center justify-center" x-text="data.assignee.initials"></span>
+                                        <span class="text-primary" x-text="data.assignee.name"></span>
+                                    </span>
+                                </template>
+                                <template x-if="!data.assignee">
+                                    <span class="text-neutral italic">Unassigned</span>
+                                </template>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="w-20 text-neutral flex-shrink-0">Start</span>
+                                <span class="text-primary" x-text="data.start_date || '—'"></span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="w-20 text-neutral flex-shrink-0">Due</span>
+                                <span :class="data.overdue ? 'text-danger font-medium' : 'text-primary'" x-text="data.due_date || '—'"></span>
+                                <template x-if="data.overdue">
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-danger font-medium">OVERDUE</span>
+                                </template>
+                            </div>
+                        </div>
+
+                        {{-- Project structure --}}
+                        <div>
+                            <h3 class="text-[11px] font-semibold uppercase tracking-wider text-neutral mb-2">Project structure</h3>
+                            <div class="space-y-2 text-xs">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-20 text-neutral flex-shrink-0">Project</span>
+                                    <span class="text-primary" x-text="data.project ? data.project.name : '—'"></span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span class="w-20 text-neutral flex-shrink-0">Department</span>
+                                    <span class="text-primary" x-text="data.department ? data.department.name : '—'"></span>
+                                </div>
+                                <template x-if="data.parent">
+                                    <div class="flex items-center gap-3">
+                                        <span class="w-20 text-neutral flex-shrink-0">Parent</span>
+                                        <span class="text-secondary" x-text="data.parent.title"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        {{-- Tags --}}
+                        <template x-if="data.tags && data.tags.length">
+                            <div>
+                                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-neutral mb-2">Labels</h3>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <template x-for="t in data.tags" :key="t.id">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium"
+                                              :style="`background:${t.color}20;color:${t.color}`"
+                                              x-text="t.name"></span>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        {{-- Progress --}}
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-neutral">Progress</h3>
+                                <span class="text-xs font-bold" :class="data.progress > 100 ? 'text-danger' : 'text-secondary'" x-text="Math.round(data.progress) + '%'"></span>
+                            </div>
+                            <div class="h-2 bg-surface-alt rounded-full overflow-hidden">
+                                <div class="h-full rounded-full transition-all"
+                                     :class="data.progress > 100 ? 'bg-danger' : 'bg-secondary'"
+                                     :style="`width: ${Math.min(100, data.progress)}%`"></div>
+                            </div>
+                            <p class="text-[11px] text-neutral mt-1.5">
+                                <span x-text="data.subtasks.done"></span> / <span x-text="data.subtasks.total"></span> subtasks done
+                            </p>
+                        </div>
+
+                        {{-- Meta --}}
+                        <div class="pt-3 border-t border-border text-[11px] text-neutral space-y-1">
+                            <p>Created <span x-text="data.created_at"></span></p>
+                            <p>Updated <span x-text="data.updated_at"></span></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </aside>
+    </div>
+    </div>
+
+    <script>
+        function taskSummaryPanel() {
+            const STATUS_META = {
+                todo:        { label: 'To Do',       bg: '#F1F5F9', fg: '#475569' },
+                in_progress: { label: 'In Progress', bg: '#DBEAFE', fg: '#1D4ED8' },
+                review:      { label: 'Review',      bg: '#FEF3C7', fg: '#B45309' },
+                done:        { label: 'Done',        bg: '#D1FAE5', fg: '#047857' },
+                cancelled:   { label: 'Cancelled',   bg: '#FEE2E2', fg: '#B91C1C' },
+            };
+            const PRIORITY_COLOR = { urgent: '#DC2626', high: '#D97706', medium: '#2563EB', low: '#6B7280' };
+            return {
+                isOpen: false,
+                loading: false,
+                errorMsg: '',
+                data: null,
+                statusLabel(s){ return STATUS_META[s]?.label || s; },
+                statusBg(s){ return STATUS_META[s]?.bg || '#F1F5F9'; },
+                statusFg(s){ return STATUS_META[s]?.fg || '#475569'; },
+                priorityColor(p){ return PRIORITY_COLOR[p] || '#6B7280'; },
+                close() { this.isOpen = false; },
+                async open(taskId) {
+                    this.isOpen = true;
+                    this.loading = true;
+                    this.errorMsg = '';
+                    this.data = null;
+                    try {
+                        const res = await fetch(`/tasks/${taskId}/summary`, {
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        this.data = await res.json();
+                    } catch (e) {
+                        this.errorMsg = 'Không tải được thông tin task.';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+            };
+        }
+        document.addEventListener('alpine:init', () => {
+            if (window.Alpine && typeof Alpine.data === 'function') {
+                Alpine.data('taskSummaryPanel', taskSummaryPanel);
+            }
+        });
+    </script>
 </x-layouts.app>

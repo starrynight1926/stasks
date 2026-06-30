@@ -51,6 +51,32 @@
                     <input type="text" name="phone" value="{{ $teamMember->phone }}" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
                 </div>
             </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Cơ sở</label>
+                    <select name="branch_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                        <option value="">— Không gán —</option>
+                        @foreach($branches as $br)<option value="{{ $br->id }}" @selected($teamMember->branch_id == $br->id)>{{ $br->name }}</option>@endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Vai trò hệ thống</label>
+                    <select name="role_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                        <option value="">— Không gán —</option>
+                        @foreach($roles as $r)<option value="{{ $r->id }}" @selected($teamMember->role_id == $r->id)>{{ $r->name }}</option>@endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Username</label>
+                    <input type="text" name="username" value="{{ $teamMember->username }}" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Mật khẩu (để trống nếu không đổi)</label>
+                    <input type="text" name="password" placeholder="••••••" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                </div>
+            </div>
             <div class="flex gap-3 pt-2">
                 <a href="{{ route('teams') }}" class="flex-1 px-4 py-2.5 text-sm font-medium text-neutral border border-border rounded-lg text-center hover:bg-surface-alt transition">Cancel</a>
                 <button type="submit" class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-light transition">Save Changes</button>
