@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\QuickNoteController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\DepartmentController;
@@ -20,7 +21,13 @@ Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::middleware('simple.auth')->group(function () {
-    Route::get('/', fn() => redirect()->route('dashboard'));
+    Route::get('/', fn() => redirect()->route('quick-tasks'));
+
+    Route::get('/quick-tasks', [QuickNoteController::class, 'index'])->name('quick-tasks');
+    Route::get('/api/quick-notes', [QuickNoteController::class, 'list'])->name('quick-notes.list');
+    Route::post('/api/quick-notes', [QuickNoteController::class, 'store'])->name('quick-notes.store');
+    Route::patch('/api/quick-notes/{quickNote}', [QuickNoteController::class, 'update'])->name('quick-notes.update');
+    Route::delete('/api/quick-notes/{quickNote}', [QuickNoteController::class, 'destroy'])->name('quick-notes.destroy');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 

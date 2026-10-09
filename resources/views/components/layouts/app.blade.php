@@ -67,6 +67,7 @@
         </div>
 
         <nav class="hidden md:flex items-center gap-1 ml-8">
+            <a href="{{ route('quick-tasks') }}" class="px-3 py-1.5 text-sm font-medium rounded-lg transition {{ request()->routeIs('quick-tasks') ? 'text-secondary bg-blue-50' : 'text-neutral hover:text-primary hover:bg-surface-alt' }}">Note nhanh</a>
             <a href="{{ route('dashboard') }}" class="px-3 py-1.5 text-sm font-medium rounded-lg transition {{ request()->routeIs('dashboard') ? 'text-secondary bg-blue-50' : 'text-neutral hover:text-primary hover:bg-surface-alt' }}">Dashboard</a>
             <a href="{{ route('tasks.board') }}" class="px-3 py-1.5 text-sm font-medium rounded-lg transition {{ request()->routeIs('tasks.*') ? 'text-secondary bg-blue-50' : 'text-neutral hover:text-primary hover:bg-surface-alt' }}">Tasks</a>
             <a href="{{ route('teams') }}" class="px-3 py-1.5 text-sm font-medium rounded-lg transition {{ request()->routeIs('teams') ? 'text-secondary bg-blue-50' : 'text-neutral hover:text-primary hover:bg-surface-alt' }}">Teams</a>

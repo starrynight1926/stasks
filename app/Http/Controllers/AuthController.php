@@ -15,7 +15,7 @@ class AuthController extends Controller
     public function showLogin()
     {
         if (session('authenticated')) {
-            return redirect()->route('dashboard');
+            return redirect()->route('quick-tasks');
         }
 
         return view('auth.login');
@@ -37,7 +37,7 @@ class AuthController extends Controller
                 'role_id' => null,
                 'permissions' => ['*'],
             ]);
-            return redirect()->route('dashboard');
+            return redirect()->route('quick-tasks');
         }
 
         // 2) Member login: username + password match
@@ -56,7 +56,7 @@ class AuthController extends Controller
                     'permissions' => $perms,
                     'must_change_password' => (bool) $member->must_change_password,
                 ]);
-                return redirect()->route('dashboard');
+                return redirect()->route('quick-tasks');
             }
         }
 
