@@ -1,309 +1,271 @@
-<!doctype html>
-<html lang="vi">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="csrf-token" content="{{ csrf_token() }}">
-<title>Note nhanh việc — ProjectFlow</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ asset('quick-tasks-assets/styles.css') }}">
-</head>
-<body>
-<div class="app">
-  <aside class="sidebar">
-    <div class="sb-head">
-      <div class="sb-logo">S</div>
-      <div>
-        <div class="sb-ws">Note nhanh việc</div>
-        <div style="font-size:.7rem; color:var(--gray9)">{{ session('user_name', 'User') }}</div>
-      </div>
+<x-layouts.app title="Note nhanh">
+<div x-data="quickNotes()" x-init="init()" class="flex gap-6">
+    {{-- LEFT: content --}}
+    <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between mb-6 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-primary">Note nhanh việc</h1>
+                <p class="text-sm text-neutral mt-1">Ghi chú công việc theo ngày, lưu trực tiếp cho tài khoản của bạn</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button @click="pickDay(todayISO())" class="px-3 py-1.5 text-sm text-neutral hover:text-primary hover:bg-surface-alt rounded-lg transition">Hôm nay</button>
+            </div>
+        </div>
+
+        {{-- date header --}}
+        <div class="flex items-baseline gap-3 mb-4">
+            <div class="text-xl font-semibold text-primary" x-text="bigDate"></div>
+            <div class="text-xs text-neutral" x-text="monthLabel"></div>
+        </div>
+
+        {{-- stats --}}
+        <div class="grid grid-cols-5 gap-3 mb-4">
+            <template x-for="s in statsRow" :key="s.k">
+                <div class="bg-white border border-border rounded-xl p-3">
+                    <div class="text-xs text-neutral" x-text="s.k"></div>
+                    <div class="text-xl font-semibold mt-0.5" :class="s.cls" x-text="s.v"></div>
+                </div>
+            </template>
+        </div>
+
+        {{-- list --}}
+        <div class="space-y-2 mb-3">
+            <template x-if="dayTasks.length === 0">
+                <div class="bg-white border border-dashed border-border rounded-xl p-10 text-center text-sm text-neutral">
+                    Không có công việc nào vào ngày này.
+                </div>
+            </template>
+            <template x-for="t in dayTasks" :key="t.id">
+                <div class="bg-white border border-border rounded-xl p-3 flex items-start gap-3 hover:shadow-sm transition"
+                     :class="t.status==='done' ? 'opacity-80' : ''">
+                    {{-- checkbox --}}
+                    <button @click="toggleDone(t)"
+                            class="w-5 h-5 mt-0.5 rounded border flex-shrink-0 flex items-center justify-center transition"
+                            :class="t.status==='done' ? 'bg-secondary border-secondary' : 'border-neutral-light hover:bg-surface-alt'">
+                        <svg x-show="t.status==='done'" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                    </button>
+
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-sm font-medium" :class="t.status==='done' ? 'line-through text-neutral' : 'text-primary'" x-text="t.title"></h3>
+                        <div class="flex items-center gap-2 mt-1 text-xs text-neutral flex-wrap">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                                  :class="statusPill(t.status).cls">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="statusPill(t.status).dot"></span>
+                                <span x-text="statusPill(t.status).label"></span>
+                            </span>
+                            <span x-text="'· ' + (t.project || '—')"></span>
+                            <template x-if="t.priority"><span x-text="'· ưu tiên ' + t.priority"></span></template>
+                        </div>
+                        <template x-if="t.note">
+                            <div class="mt-2 text-xs bg-amber-50 text-amber-700 border border-amber-100 rounded px-2 py-1" x-text="'📝 ' + t.note"></div>
+                        </template>
+                    </div>
+
+                    <div class="flex items-center gap-1 flex-shrink-0 relative" x-data="{ open:false }" @click.outside="open=false">
+                        <button @click="open = !open" class="px-2 py-1 text-xs border border-border rounded-md hover:bg-surface-alt transition">Trạng thái ▾</button>
+                        <div x-show="open" x-cloak class="absolute right-0 top-9 z-30 w-52 bg-white border border-border rounded-xl shadow-lg py-1">
+                            <template x-for="opt in statusOpts" :key="opt.key">
+                                <button @click="open=false; changeStatus(t, opt.key)"
+                                        class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-surface-alt transition">
+                                    <span class="w-2 h-2 rounded-full" :class="opt.dot"></span>
+                                    <span x-text="opt.label"></span>
+                                </button>
+                            </template>
+                        </div>
+                        <button @click="removeTask(t)" class="p-1.5 rounded hover:bg-red-50 transition" title="Xóa">
+                            <svg class="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        {{-- quick add --}}
+        <div class="bg-white border border-dashed border-border rounded-xl p-3 flex items-center gap-3 focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition">
+            <div class="w-5 h-5 rounded border border-dashed border-neutral-light flex items-center justify-center text-neutral text-sm">+</div>
+            <input x-model="newTitle" @keydown.enter="addNew()" type="text" placeholder="Thêm công việc cho ngày này — Enter để lưu"
+                   class="flex-1 bg-transparent outline-none text-sm text-primary placeholder:text-neutral-light">
+            <input x-model="newProj" type="text" placeholder="dự án" list="projList"
+                   class="w-24 px-2 py-1 text-xs bg-surface-alt border border-border rounded text-neutral outline-none focus:border-secondary">
+            <datalist id="projList">
+                <template x-for="p in projects" :key="p"><option :value="p"></option></template>
+            </datalist>
+            <span class="text-[10px] text-neutral">⏎ Enter</span>
+        </div>
     </div>
-    <div class="sb-section">
-      <a class="sb-item active" href="{{ route('quick-tasks') }}">📋 Hôm nay</a>
-      <a class="sb-item" href="{{ route('tasks.board') }}">🗂️ Tasks (hệ thống)</a>
-      <a class="sb-item" href="{{ route('dashboard') }}">📊 Dashboard</a>
-    </div>
-    <div style="margin-top:auto; padding:12px">
-      <form action="{{ route('logout') }}" method="POST" style="margin:0">
-        @csrf
-        <button type="submit" class="sb-item" style="width:100%; text-align:left; border:none; background:transparent; cursor:pointer; font:inherit">🚪 Đăng xuất</button>
-      </form>
-    </div>
-  </aside>
 
-  <main class="main">
-    <header class="topbar">
-      <h1 id="pageTitle">Hôm nay</h1>
-    </header>
-
-    <div class="workspace">
-      <div class="content">
-        <div class="date-head">
-          <div>
-            <span class="big" id="bigDate">—</span>
-            <span class="sub" id="monthLabel">—</span>
-          </div>
-          <div class="right">
-            <button class="btn btn-ghost btn-sm" onclick="pickDay(todayISO())">Hôm nay</button>
-          </div>
+    {{-- RIGHT: calendar --}}
+    <aside class="w-72 flex-shrink-0 bg-white border border-border rounded-xl p-4 h-fit sticky top-20">
+        <div class="flex items-center justify-between mb-3">
+            <div class="text-sm font-semibold text-primary capitalize" x-text="calMonthLabel"></div>
+            <div class="flex gap-1">
+                <button @click="shiftMonth(-1)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-alt transition text-neutral">‹</button>
+                <button @click="shiftMonth(1)" class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-alt transition text-neutral">›</button>
+            </div>
         </div>
-
-        <div class="stats" id="stats"></div>
-        <div id="list"></div>
-
-        <div class="quick-add">
-          <div class="plus">+</div>
-          <input id="quickAdd" type="text" placeholder="Thêm công việc cho ngày này — Enter để lưu">
-          <input class="proj" id="quickProj" type="text" placeholder="dự án" list="projList" style="width:100px">
-          <datalist id="projList"></datalist>
-          <span class="hint">⏎ Enter</span>
+        <div class="grid grid-cols-7 gap-0.5 text-center mb-1">
+            <template x-for="d in ['CN','T2','T3','T4','T5','T6','T7']" :key="d">
+                <div class="text-[10px] font-medium text-neutral uppercase py-1" x-text="d"></div>
+            </template>
         </div>
-      </div>
-
-      <aside class="cal-panel">
-        <div class="cal-head">
-          <div class="m" id="calMonth">—</div>
-          <div class="nav">
-            <button class="btn btn-ghost btn-sm btn-icon" onclick="shiftMonth(-1)" title="Tháng trước">‹</button>
-            <button class="btn btn-ghost btn-sm btn-icon" onclick="shiftMonth(1)"  title="Tháng sau">›</button>
-          </div>
+        <div class="grid grid-cols-7 gap-0.5">
+            <template x-for="c in calCells" :key="c.iso + '-' + c.i">
+                <button @click="pickDay(c.iso)"
+                        class="aspect-square rounded flex flex-col items-center justify-between py-1 text-xs transition"
+                        :class="[
+                            c.iso===currentISO ? 'bg-secondary text-white' :
+                              (c.iso===todayStr ? 'text-secondary font-semibold hover:bg-surface-alt' :
+                                (c.outside ? 'text-neutral-light hover:bg-surface-alt' : 'text-primary hover:bg-surface-alt'))
+                        ]">
+                    <span x-text="c.day"></span>
+                    <span class="flex gap-0.5 h-1.5">
+                        <template x-for="s in c.dots" :key="s">
+                            <span class="w-1 h-1 rounded-full"
+                                  :class="c.iso===currentISO ? 'bg-white/90' : dotColor(s)"></span>
+                        </template>
+                    </span>
+                </button>
+            </template>
         </div>
-        <div class="cal-dow">
-          <div>CN</div><div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div>
+        <div class="mt-3 pt-3 border-t border-border space-y-1 text-[11px] text-neutral">
+            <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Đã xong</div>
+            <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>Đang thực hiện</div>
+            <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Xong một phần</div>
+            <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Không thể xong</div>
+            <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-neutral-light"></span>Chưa làm</div>
         </div>
-        <div class="cal-grid" id="calGrid"></div>
-
-        <div class="cal-legend">
-          <div class="row"><span class="sw" style="background:#4ca374"></span> Đã xong</div>
-          <div class="row"><span class="sw" style="background:var(--accent9)"></span> Đang thực hiện</div>
-          <div class="row"><span class="sw" style="background:#c25700"></span> Xong một phần</div>
-          <div class="row"><span class="sw" style="background:#be3b38"></span> Không thể xong</div>
-          <div class="row"><span class="sw" style="background:var(--gray7)"></span> Chưa làm</div>
-        </div>
-      </aside>
-    </div>
-  </main>
+    </aside>
 </div>
 
 <script>
-  const STATUS = {
-    todo:    { label:'Chưa làm',       cls:'gray' },
-    doing:   { label:'Đang thực hiện', cls:'blue' },
-    done:    { label:'Đã xong',        cls:'green' },
-    partial: { label:'Xong một phần',  cls:'amber' },
-    blocked: { label:'Không thể xong', cls:'red' },
-  };
-  const CSRF = document.querySelector('meta[name="csrf-token"]').content;
-  const URLS = {
-    list:   '{{ route('quick-notes.list') }}',
-    store:  '{{ route('quick-notes.store') }}',
-    update: id => `/api/quick-notes/${id}`,
-    destroy:id => `/api/quick-notes/${id}`,
-  };
+function quickNotes(){
+    const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+    const URLS = {
+        list:   @json(route('quick-notes.list')),
+        store:  @json(route('quick-notes.store')),
+        base:   '/api/quick-notes',
+    };
+    const STATUS_OPTS = [
+        { key:'todo',    label:'Chưa làm',       dot:'bg-neutral-light' },
+        { key:'doing',   label:'Đang thực hiện', dot:'bg-secondary' },
+        { key:'done',    label:'Đã xong',        dot:'bg-green-500' },
+        { key:'partial', label:'Xong một phần…', dot:'bg-amber-500' },
+        { key:'blocked', label:'Không thể xong…',dot:'bg-red-500' },
+    ];
+    const PILLS = {
+        todo:    { label:'Chưa làm',       cls:'bg-slate-100 text-slate-600',  dot:'bg-neutral-light' },
+        doing:   { label:'Đang thực hiện', cls:'bg-blue-50 text-blue-700',     dot:'bg-secondary' },
+        done:    { label:'Đã xong',        cls:'bg-green-50 text-green-700',   dot:'bg-green-500' },
+        partial: { label:'Xong một phần',  cls:'bg-amber-50 text-amber-700',   dot:'bg-amber-500' },
+        blocked: { label:'Không thể xong', cls:'bg-red-50 text-red-700',       dot:'bg-red-500' },
+    };
 
-  function todayISO(d=new Date()){
-    const z = new Date(d.getTime() - d.getTimezoneOffset()*60000);
-    return z.toISOString().slice(0,10);
-  }
-  function addDays(d, n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
-  function statusTag(status){
-    const s = STATUS[status] || STATUS.todo;
-    return `<span class="tag pill ${s.cls}">● ${s.label}</span>`;
-  }
+    function toISO(d){ const z=new Date(d.getTime()-d.getTimezoneOffset()*60000); return z.toISOString().slice(0,10); }
+    function addDays(d, n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 
-  let TASKS = [];
+    return {
+        tasks: [],
+        currentISO: toISO(new Date()),
+        todayStr: toISO(new Date()),
+        calMonth: (() => { const d=new Date(); d.setDate(1); return d; })(),
+        newTitle: '', newProj: '',
+        statusOpts: STATUS_OPTS,
 
-  async function api(url, opts={}){
-    const r = await fetch(url, {
-      headers: { 'X-CSRF-TOKEN': CSRF, 'Accept':'application/json', 'Content-Type':'application/json' },
-      ...opts,
-    });
-    if (!r.ok) throw new Error('API '+r.status);
-    return r.status===204 ? null : r.json();
-  }
-  async function loadAll(){ TASKS = await api(URLS.list); }
-  async function createTask(payload){ const t = await api(URLS.store, {method:'POST', body:JSON.stringify(payload)}); TASKS.push(t); return t; }
-  async function patchTask(id, payload){ const t = await api(URLS.update(id), {method:'PATCH', body:JSON.stringify(payload)}); const i=TASKS.findIndex(x=>x.id===id); if(i>=0) TASKS[i]=t; return t; }
-  async function deleteTask(id){ await api(URLS.destroy(id), {method:'DELETE'}); TASKS = TASKS.filter(x=>x.id!==id); }
+        async init(){ await this.reload(); },
+        todayISO(){ return toISO(new Date()); },
 
-  let currentISO = todayISO();
-  let calMonth = new Date(currentISO); calMonth.setDate(1);
+        async api(url, opts={}){
+            const r = await fetch(url, {
+                headers:{'X-CSRF-TOKEN':CSRF,'Accept':'application/json','Content-Type':'application/json'},
+                ...opts,
+            });
+            if(!r.ok) throw new Error('HTTP '+r.status);
+            return r.status===204 ? null : r.json();
+        },
+        async reload(){ this.tasks = await this.api(URLS.list); },
 
-  function render(){
-    const d = new Date(currentISO);
-    const dow = d.toLocaleDateString('vi-VN',{weekday:'long'});
-    const dd = String(d.getDate()).padStart(2,'0');
-    const mm = String(d.getMonth()+1).padStart(2,'0');
-    document.getElementById('bigDate').textContent =
-      `${dow.charAt(0).toUpperCase()+dow.slice(1)}, ${dd}/${mm}`;
-    document.getElementById('monthLabel').textContent =
-      d.toLocaleDateString('vi-VN',{month:'long', year:'numeric'});
+        pickDay(iso){
+            this.currentISO = iso;
+            const d = new Date(iso); this.calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+        },
+        shiftMonth(dir){ this.calMonth = new Date(this.calMonth.getFullYear(), this.calMonth.getMonth()+dir, 1); },
 
-    renderCalendar();
-    const tasks = TASKS.filter(t=>t.iso===currentISO);
-    renderStats(tasks);
-    renderList(tasks);
-    refreshProjects();
-  }
+        get bigDate(){
+            const d=new Date(this.currentISO);
+            const dow=d.toLocaleDateString('vi-VN',{weekday:'long'});
+            return dow.charAt(0).toUpperCase()+dow.slice(1)+', '+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+        },
+        get monthLabel(){ return new Date(this.currentISO).toLocaleDateString('vi-VN',{month:'long',year:'numeric'}); },
+        get calMonthLabel(){ return this.calMonth.toLocaleDateString('vi-VN',{month:'long',year:'numeric'}); },
 
-  function pickDay(iso){
-    currentISO = iso;
-    const d = new Date(iso);
-    calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
-    render();
-  }
-  function shiftMonth(dir){
-    calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth()+dir, 1);
-    renderCalendar();
-    document.getElementById('calMonth').textContent =
-      calMonth.toLocaleDateString('vi-VN',{month:'long', year:'numeric'});
-  }
+        get dayTasks(){ return this.tasks.filter(t => t.iso===this.currentISO); },
+        get projects(){ return [...new Set(this.tasks.map(t=>t.project).filter(Boolean))]; },
 
-  function renderCalendar(){
-    const first = new Date(calMonth);
-    const start = new Date(first);
-    start.setDate(1 - first.getDay());
-    const todayStr = todayISO();
-    const byDay = {};
-    TASKS.forEach(t=>{ (byDay[t.iso]=byDay[t.iso]||[]).push(t.status); });
+        get statsRow(){
+            const t = this.dayTasks;
+            const c = s => t.filter(x=>x.status===s).length;
+            return [
+                { k:'Tổng',       v:t.length, cls:'text-primary' },
+                { k:'Đã xong',    v:c('done'),    cls:'text-green-600' },
+                { k:'Đang làm',   v:c('doing'),   cls:'text-secondary' },
+                { k:'Một phần',   v:c('partial'), cls:'text-amber-600' },
+                { k:'Không xong', v:c('blocked'), cls:'text-red-600' },
+            ];
+        },
 
-    const cells = [];
-    for (let i=0;i<42;i++){
-      const d = addDays(start, i);
-      const iso = todayISO(d);
-      const outside = d.getMonth() !== first.getMonth();
-      const classes = ['cal-cell'];
-      if (outside) classes.push('outside');
-      if (iso===todayStr) classes.push('today');
-      if (iso===currentISO) classes.push('active');
+        get calCells(){
+            const first = new Date(this.calMonth);
+            const start = new Date(first); start.setDate(1 - first.getDay());
+            const byDay = {};
+            this.tasks.forEach(t => (byDay[t.iso] = byDay[t.iso] || []).push(t.status));
+            const cells = [];
+            for (let i=0;i<42;i++){
+                const d = addDays(start, i);
+                const iso = toISO(d);
+                const list = byDay[iso] || [];
+                const uniq = [];
+                ['done','doing','partial','blocked','todo'].forEach(s => { if (list.includes(s)) uniq.push(s); });
+                cells.push({
+                    i, iso, day: d.getDate(),
+                    outside: d.getMonth() !== first.getMonth(),
+                    dots: uniq.slice(0,3),
+                });
+            }
+            return cells;
+        },
 
-      const list = byDay[iso] || [];
-      const uniq = [];
-      ['done','doing','partial','blocked','todo'].forEach(s=>{ if (list.includes(s)) uniq.push(s); });
-      const dots = uniq.slice(0,3).map(s=>`<span class="d-${s}"></span>`).join('');
+        statusPill(k){ return PILLS[k] || PILLS.todo; },
+        dotColor(s){ return PILLS[s]?.dot || 'bg-neutral-light'; },
 
-      cells.push(`<div class="${classes.join(' ')}" data-iso="${iso}"><div class="n">${d.getDate()}</div><div class="cal-dots">${dots}</div></div>`);
-    }
-    const grid = document.getElementById('calGrid');
-    grid.innerHTML = cells.join('');
-    document.getElementById('calMonth').textContent =
-      first.toLocaleDateString('vi-VN',{month:'long', year:'numeric'});
-    grid.querySelectorAll('.cal-cell').forEach(el=>{ el.onclick = ()=> pickDay(el.dataset.iso); });
-  }
-
-  function refreshProjects(){
-    const projs = [...new Set(TASKS.map(t=>t.project).filter(Boolean))];
-    document.getElementById('projList').innerHTML = projs.map(p=>`<option value="${p}">`).join('');
-  }
-
-  document.getElementById('quickAdd').addEventListener('keydown', async (e)=>{
-    if (e.key!=='Enter') return;
-    const title = e.target.value.trim();
-    if (!title) return;
-    const proj = document.getElementById('quickProj').value.trim() || null;
-    try {
-      await createTask({ title, iso: currentISO, status:'todo', project: proj });
-      e.target.value='';
-      render();
-    } catch(err){ alert('Lỗi lưu: '+err.message); }
-  });
-
-  function renderStats(tasks){
-    const count = s => tasks.filter(t=>t.status===s).length;
-    document.getElementById('stats').innerHTML = `
-      <div class="stat"><div class="k">Tổng</div><div class="v">${tasks.length}</div></div>
-      <div class="stat ok"><div class="k">Đã xong</div><div class="v">${count('done')}</div></div>
-      <div class="stat doing"><div class="k">Đang làm</div><div class="v">${count('doing')}</div></div>
-      <div class="stat warn"><div class="k">Một phần</div><div class="v">${count('partial')}</div></div>
-      <div class="stat bad"><div class="k">Không xong</div><div class="v">${count('blocked')}</div></div>
-    `;
-  }
-
-  function renderList(tasks){
-    const list = document.getElementById('list');
-    if (!tasks.length){ list.innerHTML = '<div class="empty">Không có công việc nào vào ngày này.</div>'; return; }
-    list.innerHTML = '<div class="task-list">' + tasks.map(renderCard).join('') + '</div>';
-    bindCards();
-  }
-
-  function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function renderCard(t){
-    const isDone = t.status==='done';
-    return `
-      <div class="task-card ${isDone?'done':''}" data-id="${t.id}">
-        <div class="task-check ${isDone?'checked':''}" data-action="toggle"></div>
-        <div class="task-body">
-          <h3 class="task-title">${esc(t.title)}</h3>
-          <div class="task-meta">
-            ${statusTag(t.status)}
-            <span>· ${esc(t.project||'—')}</span>
-            ${t.priority?`<span>· ưu tiên ${esc(t.priority)}</span>`:''}
-          </div>
-          ${t.note?`<div class="task-note">📝 ${esc(t.note)}</div>`:''}
-        </div>
-        <div class="task-actions">
-          <div class="status-wrap">
-            <button class="btn btn-secondary btn-sm" data-action="status">Trạng thái ▾</button>
-            <div class="status-menu">
-              <div class="status-item todo"    data-s="todo">   <span class="sw"></span> Chưa làm</div>
-              <div class="status-item doing"   data-s="doing">  <span class="sw"></span> Đang thực hiện</div>
-              <div class="status-item done"    data-s="done">   <span class="sw"></span> Đã xong</div>
-              <div class="status-item partial" data-s="partial"><span class="sw"></span> Xong một phần…</div>
-              <div class="status-item blocked" data-s="blocked"><span class="sw"></span> Không thể xong…</div>
-            </div>
-          </div>
-          <button class="btn btn-ghost btn-sm" data-action="delete" title="Xóa">✕</button>
-        </div>
-      </div>
-    `;
-  }
-
-  function bindCards(){
-    document.querySelectorAll('.task-card').forEach(card=>{
-      const id = +card.dataset.id;
-      card.querySelector('[data-action="toggle"]').onclick = async ()=>{
-        const t = TASKS.find(x=>x.id===id);
-        const next = t.status==='done' ? 'todo' : 'done';
-        await patchTask(id,{status:next, note: next==='done'?null:t.note});
-        render();
-      };
-      card.querySelector('[data-action="delete"]').onclick = async ()=>{
-        if(!confirm('Xóa công việc này?')) return;
-        await deleteTask(id);
-        render();
-      };
-      const menu = card.querySelector('.status-menu');
-      card.querySelector('[data-action="status"]').onclick = (e)=>{
-        e.stopPropagation();
-        document.querySelectorAll('.status-menu.open').forEach(m=>m!==menu && m.classList.remove('open'));
-        menu.classList.toggle('open');
-      };
-      menu.querySelectorAll('.status-item').forEach(it=>{
-        it.onclick = async ()=>{
-          const s = it.dataset.s;
-          let note = TASKS.find(x=>x.id===id).note;
-          if (s==='partial' || s==='blocked'){
-            const q = s==='partial' ? 'Phần nào đã xong, phần nào còn lại?' : 'Lý do không thể xong là gì?';
-            const v = prompt(q, note||'');
-            if (v===null) return;
-            note = v.trim() || null;
-          } else { note = null; }
-          await patchTask(id,{status:s, note});
-          render();
-        };
-      });
-    });
-    document.addEventListener('click', ()=>{
-      document.querySelectorAll('.status-menu.open').forEach(m=>m.classList.remove('open'));
-    }, {once:true});
-  }
-
-  (async ()=>{
-    try { await loadAll(); } catch(e){ alert('Không tải được dữ liệu: '+e.message); }
-    render();
-  })();
+        async addNew(){
+            const title = this.newTitle.trim(); if (!title) return;
+            const t = await this.api(URLS.store, { method:'POST', body:JSON.stringify({
+                title, iso: this.currentISO, status:'todo', project: this.newProj.trim() || null
+            })});
+            this.tasks.push(t);
+            this.newTitle = '';
+        },
+        async toggleDone(t){
+            const next = t.status==='done' ? 'todo' : 'done';
+            const updated = await this.api(URLS.base+'/'+t.id, { method:'PATCH', body:JSON.stringify({ status:next, note: next==='done' ? null : t.note }) });
+            const i = this.tasks.findIndex(x=>x.id===t.id); if (i>=0) this.tasks[i] = updated;
+        },
+        async changeStatus(t, s){
+            let note = t.note;
+            if (s==='partial' || s==='blocked'){
+                const q = s==='partial' ? 'Phần nào đã xong, phần nào còn lại?' : 'Lý do không thể xong là gì?';
+                const v = prompt(q, note || ''); if (v===null) return;
+                note = v.trim() || null;
+            } else { note = null; }
+            const updated = await this.api(URLS.base+'/'+t.id, { method:'PATCH', body:JSON.stringify({ status:s, note }) });
+            const i = this.tasks.findIndex(x=>x.id===t.id); if (i>=0) this.tasks[i] = updated;
+        },
+        async removeTask(t){
+            if (!confirm('Xóa công việc này?')) return;
+            await this.api(URLS.base+'/'+t.id, { method:'DELETE' });
+            this.tasks = this.tasks.filter(x=>x.id!==t.id);
+        },
+    };
+}
 </script>
-</body>
-</html>
+</x-layouts.app>

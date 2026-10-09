@@ -130,6 +130,10 @@
                 </div>
 
                 <nav class="space-y-0.5">
+                    <a href="{{ route('quick-tasks') }}" class="flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition {{ request()->routeIs('quick-tasks') ? 'bg-blue-50 text-secondary font-medium' : 'text-neutral-light hover:bg-surface-alt hover:text-primary' }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                        Note nhanh
+                    </a>
                     <a href="{{ route('tasks.board') }}" class="flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition {{ request()->routeIs('tasks.board') ? 'bg-blue-50 text-secondary font-medium' : 'text-neutral-light hover:bg-surface-alt hover:text-primary' }}">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/></svg>
                         Board
