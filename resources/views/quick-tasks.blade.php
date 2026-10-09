@@ -83,7 +83,7 @@
         {{-- quick add --}}
         <div class="bg-white border border-dashed border-border rounded-xl p-3 flex items-center gap-3 focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition">
             <div class="w-5 h-5 rounded border border-dashed border-neutral-light flex items-center justify-center text-neutral text-sm">+</div>
-            <input x-model="newTitle" @keydown.enter="addNew()" type="text" placeholder="Thêm công việc cho ngày này — Enter để lưu"
+            <input x-model="newTitle" @keydown.enter.prevent="if (!$event.isComposing && $event.keyCode !== 229) addNew()" type="text" placeholder="Thêm công việc cho ngày này — Enter để lưu"
                    class="flex-1 bg-transparent outline-none text-sm text-primary placeholder:text-neutral-light">
             <input x-model="newProj" type="text" placeholder="dự án" list="projList"
                    class="w-24 px-2 py-1 text-xs bg-surface-alt border border-border rounded text-neutral outline-none focus:border-secondary">
@@ -237,13 +237,20 @@ function quickNotes(){
         statusPill(k){ return PILLS[k] || PILLS.todo; },
         dotColor(s){ return PILLS[s]?.dot || 'bg-neutral-light'; },
 
+        _adding: false,
         async addNew(){
+            if (this._adding) return;
             const title = this.newTitle.trim(); if (!title) return;
-            const t = await this.api(URLS.store, { method:'POST', body:JSON.stringify({
-                title, iso: this.currentISO, status:'todo', project: this.newProj.trim() || null
-            })});
-            this.tasks.push(t);
-            this.newTitle = '';
+            this._adding = true;
+            try {
+                const t = await this.api(URLS.store, { method:'POST', body:JSON.stringify({
+                    title, iso: this.currentISO, status:'todo', project: this.newProj.trim() || null
+                })});
+                this.tasks.push(t);
+                this.newTitle = '';
+            } finally {
+                this._adding = false;
+            }
         },
         async toggleDone(t){
             const next = t.status==='done' ? 'todo' : 'done';
