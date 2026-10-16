@@ -57,8 +57,43 @@
                             <template x-if="t.priority"><span x-text="'· ưu tiên ' + t.priority"></span></template>
                         </div>
                         <template x-if="t.note">
-                            <div class="mt-2 text-xs bg-amber-50 text-amber-700 border border-amber-100 rounded px-2 py-1" x-text="'📝 ' + t.note"></div>
+                            <div class="mt-2 text-xs bg-amber-50 text-amber-700 border border-amber-100 rounded px-2 py-1 flex items-start gap-2 group/note">
+                                <span class="flex-1 whitespace-pre-wrap" x-text="'📝 ' + t.note"></span>
+                                <button @click="editNote(t)" class="opacity-0 group-hover/note:opacity-100 text-amber-700 hover:underline text-[10px] flex-shrink-0" title="Sửa">Sửa</button>
+                                <button @click="clearNote(t)" class="opacity-0 group-hover/note:opacity-100 text-amber-700 hover:underline text-[10px] flex-shrink-0" title="Xóa ghi chú">Xóa</button>
+                            </div>
                         </template>
+
+                        {{-- subtasks --}}
+                        <template x-if="(t.subtasks || []).length">
+                            <div class="mt-2 space-y-1">
+                                <template x-for="(st, idx) in t.subtasks" :key="st.id">
+                                    <div class="flex items-center gap-2 text-xs group/st">
+                                        <button @click="toggleSubtask(t, idx)"
+                                                class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition"
+                                                :class="st.done ? 'bg-secondary border-secondary' : 'border-neutral-light hover:bg-surface-alt'">
+                                            <svg x-show="st.done" class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                        </button>
+                                        <span class="flex-1" :class="st.done ? 'line-through text-neutral' : 'text-primary'" x-text="st.title"></span>
+                                        <button @click="removeSubtask(t, idx)" class="opacity-0 group-hover/st:opacity-100 text-danger hover:underline text-[10px]" title="Xóa">✕</button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
+                        {{-- inline add buttons --}}
+                        <div class="mt-2 flex items-center gap-3 text-[11px] text-neutral">
+                            <button @click="addSubtask(t)" class="hover:text-secondary transition inline-flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Thêm task con
+                            </button>
+                            <template x-if="!t.note">
+                                <button @click="editNote(t)" class="hover:text-secondary transition inline-flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    Thêm ghi chú
+                                </button>
+                            </template>
+                        </div>
                     </div>
 
                     <div class="flex items-center gap-1 flex-shrink-0 relative" x-data="{ open:false }" @click.outside="open=false">
@@ -252,20 +287,48 @@ function quickNotes(){
                 this._adding = false;
             }
         },
+        async _patch(id, payload){
+            const updated = await this.api(URLS.base+'/'+id, { method:'PATCH', body:JSON.stringify(payload) });
+            const i = this.tasks.findIndex(x=>x.id===id); if (i>=0) this.tasks[i] = updated;
+            return updated;
+        },
         async toggleDone(t){
             const next = t.status==='done' ? 'todo' : 'done';
-            const updated = await this.api(URLS.base+'/'+t.id, { method:'PATCH', body:JSON.stringify({ status:next, note: next==='done' ? null : t.note }) });
-            const i = this.tasks.findIndex(x=>x.id===t.id); if (i>=0) this.tasks[i] = updated;
+            await this._patch(t.id, { status:next });
         },
         async changeStatus(t, s){
-            let note = t.note;
+            let payload = { status: s };
             if (s==='partial' || s==='blocked'){
                 const q = s==='partial' ? 'Phần nào đã xong, phần nào còn lại?' : 'Lý do không thể xong là gì?';
-                const v = prompt(q, note || ''); if (v===null) return;
-                note = v.trim() || null;
-            } else { note = null; }
-            const updated = await this.api(URLS.base+'/'+t.id, { method:'PATCH', body:JSON.stringify({ status:s, note }) });
-            const i = this.tasks.findIndex(x=>x.id===t.id); if (i>=0) this.tasks[i] = updated;
+                const v = prompt(q, t.note || ''); if (v===null) return;
+                const n = v.trim();
+                if (n) payload.note = n;
+            }
+            await this._patch(t.id, payload);
+        },
+        async editNote(t){
+            const v = prompt('Ghi chú cho công việc:', t.note || '');
+            if (v===null) return;
+            await this._patch(t.id, { note: v.trim() || null });
+        },
+        async clearNote(t){
+            if (!confirm('Xóa ghi chú?')) return;
+            await this._patch(t.id, { note: null });
+        },
+        async addSubtask(t){
+            const v = prompt('Tên task con:');
+            if (v===null) return;
+            const title = v.trim(); if (!title) return;
+            const list = [...(t.subtasks || []), { id: Date.now(), title, done: false }];
+            await this._patch(t.id, { subtasks: list });
+        },
+        async toggleSubtask(t, idx){
+            const list = (t.subtasks || []).map((s, i) => i===idx ? { ...s, done: !s.done } : s);
+            await this._patch(t.id, { subtasks: list });
+        },
+        async removeSubtask(t, idx){
+            const list = (t.subtasks || []).filter((_, i) => i!==idx);
+            await this._patch(t.id, { subtasks: list });
         },
         async removeTask(t){
             if (!confirm('Xóa công việc này?')) return;

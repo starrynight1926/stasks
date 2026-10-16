@@ -6,9 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class QuickNote extends Model
 {
-    protected $fillable = ['member_id', 'title', 'iso', 'status', 'project', 'priority', 'note'];
+    protected $fillable = ['member_id', 'title', 'iso', 'status', 'project', 'priority', 'note', 'subtasks'];
 
     protected $casts = [
         'iso' => 'date',
+        'subtasks' => 'array',
     ];
 }

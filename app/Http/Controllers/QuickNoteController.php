@@ -33,6 +33,10 @@ class QuickNoteController extends Controller
             'project'  => 'nullable|string|max:100',
             'priority' => 'nullable|string|max:20',
             'note'     => 'nullable|string',
+            'subtasks' => 'nullable|array',
+            'subtasks.*.id'    => 'required',
+            'subtasks.*.title' => 'required|string|max:255',
+            'subtasks.*.done'  => 'required|boolean',
         ]);
         $data['status'] = $data['status'] ?? 'todo';
         $data['member_id'] = session('member_id');
@@ -50,6 +54,10 @@ class QuickNoteController extends Controller
             'project'  => 'nullable|string|max:100',
             'priority' => 'nullable|string|max:20',
             'note'     => 'nullable|string',
+            'subtasks' => 'nullable|array',
+            'subtasks.*.id'    => 'required',
+            'subtasks.*.title' => 'required|string|max:255',
+            'subtasks.*.done'  => 'required|boolean',
         ]);
         $quickNote->update($data);
         return response()->json($this->shape($quickNote->fresh()));
@@ -72,6 +80,7 @@ class QuickNoteController extends Controller
             'project'  => $t->project,
             'priority' => $t->priority,
             'note'     => $t->note,
+            'subtasks' => $t->subtasks ?? [],
         ];
     }
 }
