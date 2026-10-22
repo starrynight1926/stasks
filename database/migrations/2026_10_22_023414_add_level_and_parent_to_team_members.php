@@ -22,6 +22,7 @@ return new class extends Migration {
             if (!$exists) {
                 DB::table('departments')->insert([
                     'name' => '-- Chưa phân --',
+                    'code' => 'UNASSIGNED',
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

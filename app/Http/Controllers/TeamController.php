@@ -94,7 +94,10 @@ class TeamController extends Controller
         ]);
 
         if (empty($validated['department_id'])) {
-            $fallback = Department::firstOrCreate(['name' => '-- Chưa phân --']);
+            $fallback = Department::firstOrCreate(
+                ['name' => '-- Chưa phân --'],
+                ['code' => 'UNASSIGNED']
+            );
             $validated['department_id'] = $fallback->id;
         }
 
