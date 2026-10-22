@@ -14,10 +14,12 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 Import
             </button>
+            @if(session('is_admin'))
             <button onclick="document.getElementById('createMemberModal').classList.remove('hidden')" class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-light transition">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
                 Add Member
             </button>
+            @endif
         </div>
     </div>
 
@@ -100,6 +102,7 @@
                     </div>
                     <div class="flex items-center gap-1">
                         <span class="w-2 h-2 rounded-full {{ $member->status === 'active' ? 'bg-tertiary' : 'bg-neutral-light' }}"></span>
+                        @if(session('is_admin'))
                         <div class="relative" x-data="{ open: false }">
                             <button @click="open = !open" class="p-1 rounded hover:bg-surface-alt transition">
                                 <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"/></svg>
@@ -112,6 +115,7 @@
                                 </form>
                             </div>
                         </div>
+                        @endif
                     </div>
                 </div>
 

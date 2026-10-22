@@ -6,10 +6,12 @@
         </div>
         <div class="flex items-center gap-2">
             @include('tasks._view_switcher', ['current' => 'tasks.timeline'])
+            @if(session('is_admin') || session('level') !== 'member')
             <a href="{{ route('tasks.create') }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary-light transition">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 New Task
             </a>
+            @endif
         </div>
     </div>
 

@@ -48,6 +48,7 @@ class AuthController extends Controller
             'branch_id'     => $member->branch_id,
             'role_id'       => $member->role_id,
             'role_name'     => $member->systemRole?->name,
+            'level'         => $member->level ?: 'member',
             'permissions'   => $perms,
             'must_change_password' => (bool) $member->must_change_password,
         ]);
@@ -90,7 +91,7 @@ class AuthController extends Controller
     public function logout()
     {
         session()->forget([
-            'authenticated','user_name','is_admin','member_id','branch_id','role_id','role_name','permissions','must_change_password',
+            'authenticated','user_name','is_admin','member_id','branch_id','role_id','role_name','level','permissions','must_change_password',
         ]);
         Cookie::queue(Cookie::forget('stasks_remember'));
 

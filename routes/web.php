@@ -41,10 +41,12 @@ Route::middleware('simple.auth')->group(function () {
         Route::get('/list', [TaskController::class, 'list'])->name('list');
         Route::get('/calendar', [TaskController::class, 'calendar'])->name('calendar');
         Route::get('/archive', [TaskController::class, 'archive'])->name('archive');
-        Route::get('/create', [TaskController::class, 'create'])->name('create');
-        Route::post('/', [TaskController::class, 'store'])->name('store');
-        Route::post('/bulk-destroy', [TaskController::class, 'bulkDestroy'])->name('bulkDestroy');
-        Route::post('/bulk-archive', [TaskController::class, 'bulkArchive'])->name('bulkArchive');
+        Route::middleware('not.member')->group(function () {
+            Route::get('/create', [TaskController::class, 'create'])->name('create');
+            Route::post('/', [TaskController::class, 'store'])->name('store');
+            Route::post('/bulk-destroy', [TaskController::class, 'bulkDestroy'])->name('bulkDestroy');
+            Route::post('/bulk-archive', [TaskController::class, 'bulkArchive'])->name('bulkArchive');
+        });
         Route::get('/{task}/summary', [TaskController::class, 'summary'])->name('summary');
         Route::get('/{task}', [TaskController::class, 'show'])->name('show');
         Route::get('/{task}/edit', [TaskController::class, 'edit'])->name('edit');
@@ -64,19 +66,22 @@ Route::middleware('simple.auth')->group(function () {
     Route::post('/tasks/{task}/files', [FileController::class, 'storeForTask'])->name('tasks.files.store');
 
     Route::get('/teams', [TeamController::class, 'index'])->name('teams');
-    Route::post('/teams', [TeamController::class, 'store'])->name('teams.store');
-    Route::post('/teams/bulk-destroy', [TeamController::class, 'bulkDestroy'])->name('teams.bulkDestroy');
-    Route::get('/teams/{teamMember}/edit', [TeamController::class, 'edit'])->name('teams.edit');
-    Route::put('/teams/{teamMember}', [TeamController::class, 'update'])->name('teams.update');
-    Route::delete('/teams/{teamMember}', [TeamController::class, 'destroy'])->name('teams.destroy');
-
     Route::get('/departments', [DepartmentController::class, 'index'])->name('departments');
-    Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
-    Route::post('/departments/bulk-destroy', [DepartmentController::class, 'bulkDestroy'])->name('departments.bulkDestroy');
-    Route::put('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
-    Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
 
-    Route::prefix('organization')->name('org.')->group(function () {
+    Route::middleware('admin.only')->group(function () {
+        Route::post('/teams', [TeamController::class, 'store'])->name('teams.store');
+        Route::post('/teams/bulk-destroy', [TeamController::class, 'bulkDestroy'])->name('teams.bulkDestroy');
+        Route::get('/teams/{teamMember}/edit', [TeamController::class, 'edit'])->name('teams.edit');
+        Route::put('/teams/{teamMember}', [TeamController::class, 'update'])->name('teams.update');
+        Route::delete('/teams/{teamMember}', [TeamController::class, 'destroy'])->name('teams.destroy');
+
+        Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
+        Route::post('/departments/bulk-destroy', [DepartmentController::class, 'bulkDestroy'])->name('departments.bulkDestroy');
+        Route::put('/departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
+        Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
+    });
+
+    Route::prefix('organization')->name('org.')->middleware('admin.only')->group(function () {
         Route::get('/companies', [CompanyController::class, 'index'])->name('companies.index');
         Route::post('/companies', [CompanyController::class, 'store'])->name('companies.store');
         Route::put('/companies/{company}', [CompanyController::class, 'update'])->name('companies.update');

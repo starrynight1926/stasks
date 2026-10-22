@@ -152,6 +152,7 @@
                     </a>
                 </nav>
 
+                @if(session('is_admin'))
                 <div class="mt-6 pt-4 border-t border-border" x-data="{ orgOpen: {{ request()->routeIs('org.*','departments','teams') ? 'true' : 'true' }} }">
                     <button @click="orgOpen = !orgOpen" class="w-full flex items-center justify-between px-3 mb-2">
                         <h3 class="text-xs font-semibold text-neutral uppercase tracking-wider">Organizations</h3>
@@ -184,6 +185,7 @@
                         </a>
                     </nav>
                 </div>
+                @endif
 
                 <div class="mt-6 pt-4 border-t border-border">
                     <h3 class="text-xs font-semibold text-neutral uppercase tracking-wider mb-2 px-3">Resources</h3>
