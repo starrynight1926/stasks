@@ -1,5 +1,14 @@
 <x-layouts.app title="Note nhanh">
-<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<style>
+@media print {
+    @page { size: A4 landscape; margin: 12mm; }
+    body * { visibility: hidden !important; }
+    #qtRoot, #qtRoot * { visibility: visible !important; }
+    #qtRoot { position: absolute; left: 0; top: 0; width: 100%; }
+    #qtRoot .sticky { position: static !important; }
+    .no-print { display: none !important; }
+}
+</style>
 <div x-data="quickNotes()" x-init="init()" class="flex gap-6" id="qtRoot">
     {{-- LEFT: content --}}
     <div class="flex-1 min-w-0">
@@ -18,10 +27,9 @@
                     </select>
                 @endif
                 <button @click="pickDay(todayISO())" class="px-3 py-1.5 text-sm text-neutral hover:text-primary hover:bg-surface-alt rounded-lg transition">Hôm nay</button>
-                <button @click="exportPdf()" :disabled="exporting"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-surface-alt transition disabled:opacity-50">
+                <button @click="exportPdf()" class="no-print inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-surface-alt transition">
                     <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                    <span x-text="exporting ? 'Đang xuất…' : 'Xuất PDF'"></span>
+                    Xuất PDF
                 </button>
             </div>
         </div>
@@ -233,7 +241,6 @@ function quickNotes(){
         statusOpts: STATUS_OPTS,
         openStatusId: null,
         userId: @json(session('member_id')),
-        exporting: false,
 
         async init(){ await this.reload(); },
         todayISO(){ return toISO(new Date()); },
@@ -398,26 +405,11 @@ function quickNotes(){
             if (!this.tasks.find(x=>x.id===r.clone.id)) this.tasks.push(r.clone);
             this.pickDay(target);
         },
-        async exportPdf(){
-            if (this.exporting) return;
-            this.exporting = true;
-            try {
-                const node = document.getElementById('qtRoot');
-                const d = new Date(this.currentISO);
-                const name = 'note-nhanh-' + this.currentISO + '.pdf';
-                await html2pdf().set({
-                    margin: 10,
-                    filename: name,
-                    image: { type: 'jpeg', quality: 0.95 },
-                    html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-                    pagebreak: { mode: ['css', 'legacy'] },
-                }).from(node).save();
-            } catch (e) {
-                alert('Không xuất được PDF: ' + e.message);
-            } finally {
-                this.exporting = false;
-            }
+        exportPdf(){
+            const t = document.title;
+            document.title = 'note-nhanh-' + this.currentISO;
+            window.print();
+            setTimeout(() => { document.title = t; }, 500);
         },
         async removeTask(t){
             if (!confirm('Xóa công việc này?')) return;
