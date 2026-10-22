@@ -11,29 +11,31 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        $scope = fn($q) => $this->scopeVisible($q);
+
         $project = Project::first();
-        $totalTasks = Task::count();
-        $completedTasks = Task::where('status', 'done')->count();
-        $inProgressTasks = Task::where('status', 'in_progress')->count();
-        $overdueTasks = Task::where('due_date', '<', now())->where('status', '!=', 'done')->count();
-        $totalMembers = TeamMember::count();
-        $completionRate = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0;
+        $totalTasks      = $scope(Task::query())->count();
+        $completedTasks  = $scope(Task::query())->where('status', 'done')->count();
+        $inProgressTasks = $scope(Task::query())->where('status', 'in_progress')->count();
+        $overdueTasks    = $scope(Task::query())->where('due_date', '<', now())->where('status', '!=', 'done')->count();
+        $totalMembers    = TeamMember::count();
+        $completionRate  = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0;
 
         $tasksByStatus = [
-            'todo' => Task::where('status', 'todo')->count(),
-            'in_progress' => Task::where('status', 'in_progress')->count(),
-            'review' => Task::where('status', 'review')->count(),
-            'done' => Task::where('status', 'done')->count(),
+            'todo'        => $scope(Task::query())->where('status', 'todo')->count(),
+            'in_progress' => $scope(Task::query())->where('status', 'in_progress')->count(),
+            'review'      => $scope(Task::query())->where('status', 'review')->count(),
+            'done'        => $scope(Task::query())->where('status', 'done')->count(),
         ];
 
         $tasksByPriority = [
-            'urgent' => Task::where('priority', 'urgent')->count(),
-            'high' => Task::where('priority', 'high')->count(),
-            'medium' => Task::where('priority', 'medium')->count(),
-            'low' => Task::where('priority', 'low')->count(),
+            'urgent' => $scope(Task::query())->where('priority', 'urgent')->count(),
+            'high'   => $scope(Task::query())->where('priority', 'high')->count(),
+            'medium' => $scope(Task::query())->where('priority', 'medium')->count(),
+            'low'    => $scope(Task::query())->where('priority', 'low')->count(),
         ];
 
-        $recentTasks = Task::with('assignee', 'tags')->latest()->take(5)->get();
+        $recentTasks = $scope(Task::with('assignee', 'tags'))->latest()->take(5)->get();
         $members = TeamMember::with('department')->take(5)->get();
 
         $statusColumns = [
@@ -46,10 +48,12 @@ class DashboardController extends Controller
         foreach ($statusColumns as $key => $meta) {
             $allTasksByStatus[$key] = [
                 'meta'  => $meta,
-                'tasks' => Task::with('assignee')
-                    ->where('status', $key)
-                    ->whereNull('parent_id')
-                    ->whereNull('archived_at')
+                'tasks' => $scope(
+                        Task::with('assignee')
+                            ->where('status', $key)
+                            ->whereNull('parent_id')
+                            ->whereNull('archived_at')
+                    )
                     ->orderByDesc('updated_at')
                     ->take(20)
                     ->get(),
@@ -62,5 +66,17 @@ class DashboardController extends Controller
             'tasksByStatus', 'tasksByPriority', 'recentTasks', 'members',
             'allTasksByStatus'
         ));
+    }
+
+    private function scopeVisible($q)
+    {
+        if (session('is_admin')) return $q;
+        $me = session('member_id') ? TeamMember::find(session('member_id')) : null;
+        if (!$me) return $q->whereRaw('1=0');
+        $visible = $me->visibleMemberIds();
+        return $q->where(function ($w) use ($visible) {
+            $w->whereIn('assignee_id', $visible)
+              ->orWhereIn('created_by', $visible);
+        });
     }
 }
