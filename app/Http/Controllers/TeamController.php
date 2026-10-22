@@ -13,12 +13,13 @@ class TeamController extends Controller
 {
     public function index()
     {
-        $members     = TeamMember::with('department', 'branch', 'systemRole')->get();
+        $members     = TeamMember::with('department', 'branch', 'systemRole', 'manager')->get();
         $departments = Department::all();
         $branches    = Branch::orderBy('name')->get();
         $roles       = Role::orderBy('name')->get();
+        $managers    = TeamMember::whereIn('level', ['manager', 'lead'])->orderBy('name')->get();
 
-        return view('teams', compact('members', 'departments', 'branches', 'roles'));
+        return view('teams', compact('members', 'departments', 'branches', 'roles', 'managers'));
     }
 
     public function store(Request $request)
@@ -77,18 +78,27 @@ class TeamController extends Controller
         $emailRule    = 'required|email|unique:team_members,email' . ($ignoreId ? ',' . $ignoreId : '');
         $usernameRule = 'nullable|string|max:80|unique:team_members,username' . ($ignoreId ? ',' . $ignoreId : '');
 
-        return $request->validate([
+        $validated = $request->validate([
             'name'          => 'required|string|max:100',
             'email'         => $emailRule,
             'role'          => 'required|string|max:100',
             'position'      => 'nullable|string|max:100',
-            'department_id' => 'required|exists:departments,id',
+            'department_id' => 'nullable|exists:departments,id',
             'branch_id'     => 'nullable|exists:branches,id',
             'role_id'       => 'nullable|exists:roles,id',
             'phone'         => 'nullable|string|max:20',
             'username'      => $usernameRule,
             'password'      => 'nullable|string|min:4|max:200',
+            'level'         => 'required|in:manager,lead,member',
+            'parent_id'     => 'nullable|exists:team_members,id',
         ]);
+
+        if (empty($validated['department_id'])) {
+            $fallback = Department::firstOrCreate(['name' => '-- Chưa phân --']);
+            $validated['department_id'] = $fallback->id;
+        }
+
+        return $validated;
     }
 
     private function applyCredentials(array $validated, Request $request, bool $isCreate): array

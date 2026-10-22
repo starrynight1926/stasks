@@ -3,25 +3,54 @@
 namespace App\Http\Controllers;
 
 use App\Models\QuickNote;
+use App\Models\TeamMember;
 use Illuminate\Http\Request;
 
 class QuickNoteController extends Controller
 {
     public function index()
     {
-        return view('quick-tasks');
+        $me = $this->currentMember();
+        $visibleIds = $me ? $me->visibleMemberIds() : [session('member_id')];
+        $visibleUsers = $me
+            ? TeamMember::whereIn('id', $visibleIds)->orderBy('name')->get(['id', 'name', 'level'])
+            : collect();
+
+        return view('quick-tasks', compact('visibleUsers'));
     }
 
-    private function scope()
+    private function currentMember(): ?TeamMember
     {
-        return QuickNote::query()->where('member_id', session('member_id'));
+        $id = session('member_id');
+        return $id ? TeamMember::find($id) : null;
     }
 
-    public function list()
+    private function visibleIds(): array
     {
-        return response()->json(
-            $this->scope()->orderBy('id')->get()->map(fn($t) => $this->shape($t))
-        );
+        $me = $this->currentMember();
+        if (!$me) return [session('member_id')];
+        return $me->visibleMemberIds();
+    }
+
+    private function targetMemberId(Request $request): int|null
+    {
+        $me = $this->currentMember();
+        $requested = $request->input('user_id') ? (int) $request->input('user_id') : null;
+        if ($requested && in_array($requested, $this->visibleIds(), true)) {
+            return $requested;
+        }
+        return $me?->id ?? session('member_id');
+    }
+
+    public function list(Request $request)
+    {
+        $visible = $this->visibleIds();
+        $filter  = $request->input('user_id');
+        $q = QuickNote::query()->whereIn('member_id', $visible);
+        if ($filter && in_array((int)$filter, $visible, true)) {
+            $q->where('member_id', (int) $filter);
+        }
+        return response()->json($q->orderBy('id')->get()->map(fn($t) => $this->shape($t)));
     }
 
     public function store(Request $request)
@@ -39,14 +68,14 @@ class QuickNoteController extends Controller
             'subtasks.*.done'  => 'required|boolean',
         ]);
         $data['status'] = $data['status'] ?? 'todo';
-        $data['member_id'] = session('member_id');
+        $data['member_id'] = $this->targetMemberId($request);
         $t = QuickNote::create($data);
         return response()->json($this->shape($t));
     }
 
     public function update(Request $request, QuickNote $quickNote)
     {
-        abort_if($quickNote->member_id !== session('member_id'), 403);
+        abort_unless(in_array($quickNote->member_id, $this->visibleIds(), true), 403);
         $data = $request->validate([
             'title'    => 'sometimes|string|max:255',
             'iso'      => 'sometimes|date',
@@ -65,7 +94,7 @@ class QuickNoteController extends Controller
 
     public function carry(Request $request, QuickNote $quickNote)
     {
-        abort_if($quickNote->member_id !== session('member_id'), 403);
+        abort_unless(in_array($quickNote->member_id, $this->visibleIds(), true), 403);
         $data = $request->validate(['iso' => 'nullable|date']);
         $target = $data['iso'] ?? now()->toDateString();
         if ($quickNote->carried_to_id) {
@@ -73,7 +102,7 @@ class QuickNoteController extends Controller
             if ($existing) return response()->json(['original' => $this->shape($quickNote), 'clone' => $this->shape($existing)]);
         }
         $clone = QuickNote::create([
-            'member_id' => session('member_id'),
+            'member_id' => $quickNote->member_id,
             'title'     => $quickNote->title,
             'iso'       => $target,
             'status'    => 'todo',
@@ -88,7 +117,7 @@ class QuickNoteController extends Controller
 
     public function destroy(QuickNote $quickNote)
     {
-        abort_if($quickNote->member_id !== session('member_id'), 403);
+        abort_unless(in_array($quickNote->member_id, $this->visibleIds(), true), 403);
         $quickNote->delete();
         return response()->json(['ok' => true]);
     }
@@ -105,6 +134,7 @@ class QuickNoteController extends Controller
             'note'     => $t->note,
             'subtasks' => $t->subtasks ?? [],
             'carried_to_id' => $t->carried_to_id,
+            'member_id' => $t->member_id,
         ];
     }
 }

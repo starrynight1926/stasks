@@ -61,4 +61,29 @@ class TeamMember extends Model
         $this->loadMissing('systemRole.permissions');
         return $this->systemRole?->hasPermission($key) ?? false;
     }
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(TeamMember::class, 'parent_id');
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(TeamMember::class, 'parent_id');
+    }
+
+    /** Member ids this user may view in quick-tasks (self + hierarchy below). */
+    public function visibleMemberIds(): array
+    {
+        if ($this->level === 'manager') {
+            $leadIds = TeamMember::where('parent_id', $this->id)->pluck('id');
+            $memberIds = TeamMember::whereIn('parent_id', $leadIds)->pluck('id');
+            return array_values(array_unique([$this->id, ...$leadIds->all(), ...$memberIds->all()]));
+        }
+        if ($this->level === 'lead') {
+            $memberIds = TeamMember::where('parent_id', $this->id)->pluck('id');
+            return array_values(array_unique([$this->id, ...$memberIds->all()]));
+        }
+        return [$this->id];
+    }
 }

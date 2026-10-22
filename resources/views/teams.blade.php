@@ -189,8 +189,8 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Department</label>
-                        <select name="department_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition" required>
-                            <option value="">Select...</option>
+                        <select name="department_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                            <option value="">-- Chưa phân --</option>
                             @foreach($departments as $dept)
                                 <option value="{{ $dept->id }}">{{ $dept->name }}</option>
                             @endforeach
@@ -214,6 +214,25 @@
                         <select name="role_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
                             <option value="">— Không gán —</option>
                             @foreach($roles as $r)<option value="{{ $r->id }}">{{ $r->name }}</option>@endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Cấp bậc</label>
+                        <select name="level" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition" required>
+                            <option value="member">Member</option>
+                            <option value="lead">Lead</option>
+                            <option value="manager">Manager</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Quản lý trực tiếp</label>
+                        <select name="parent_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                            <option value="">— Không có —</option>
+                            @foreach($managers as $m)
+                                <option value="{{ $m->id }}">{{ $m->name }} ({{ ucfirst($m->level) }})</option>
+                            @endforeach
                         </select>
                     </div>
                 </div>

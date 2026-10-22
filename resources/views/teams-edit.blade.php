@@ -40,7 +40,8 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Department</label>
-                    <select name="department_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition" required>
+                    <select name="department_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                        <option value="">-- Chưa phân --</option>
                         @foreach($departments as $dept)
                             <option value="{{ $dept->id }}" {{ $teamMember->department_id == $dept->id ? 'selected' : '' }}>{{ $dept->name }}</option>
                         @endforeach
@@ -64,6 +65,25 @@
                     <select name="role_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
                         <option value="">— Không gán —</option>
                         @foreach($roles as $r)<option value="{{ $r->id }}" @selected($teamMember->role_id == $r->id)>{{ $r->name }}</option>@endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Cấp bậc</label>
+                    <select name="level" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition" required>
+                        <option value="member" @selected($teamMember->level==='member')>Member</option>
+                        <option value="lead" @selected($teamMember->level==='lead')>Lead</option>
+                        <option value="manager" @selected($teamMember->level==='manager')>Manager</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Quản lý trực tiếp</label>
+                    <select name="parent_id" class="w-full px-3 py-2.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                        <option value="">— Không có —</option>
+                        @foreach(\App\Models\TeamMember::whereIn('level', ['manager','lead'])->where('id','!=',$teamMember->id)->orderBy('name')->get() as $m)
+                            <option value="{{ $m->id }}" @selected($teamMember->parent_id == $m->id)>{{ $m->name }} ({{ ucfirst($m->level) }})</option>
+                        @endforeach
                     </select>
                 </div>
             </div>

@@ -8,6 +8,14 @@
                 <p class="text-sm text-neutral mt-1">Ghi chú công việc theo ngày, lưu trực tiếp cho tài khoản của bạn</p>
             </div>
             <div class="flex items-center gap-2">
+                @if(count($visibleUsers) > 1)
+                    <select x-model.number="userId" @change="reload()"
+                            class="px-3 py-1.5 text-sm border border-border rounded-lg outline-none focus:border-secondary transition bg-white">
+                        @foreach($visibleUsers as $u)
+                            <option value="{{ $u->id }}" @selected($u->id == session('member_id'))>{{ $u->name }} · {{ ucfirst($u->level ?? 'member') }}</option>
+                        @endforeach
+                    </select>
+                @endif
                 <button @click="pickDay(todayISO())" class="px-3 py-1.5 text-sm text-neutral hover:text-primary hover:bg-surface-alt rounded-lg transition">Hôm nay</button>
             </div>
         </div>
@@ -188,8 +196,8 @@
 function quickNotes(){
     const CSRF = document.querySelector('meta[name="csrf-token"]').content;
     const URLS = {
-        list:   @json(route('quick-notes.list')),
-        store:  @json(route('quick-notes.store')),
+        listBase: @json(route('quick-notes.list')),
+        storeBase: @json(route('quick-notes.store')),
         base:   '/api/quick-notes',
     };
     const STATUS_OPTS = [
@@ -218,6 +226,7 @@ function quickNotes(){
         newTitle: '', newProj: '',
         statusOpts: STATUS_OPTS,
         openStatusId: null,
+        userId: @json(session('member_id')),
 
         async init(){ await this.reload(); },
         todayISO(){ return toISO(new Date()); },
@@ -230,7 +239,10 @@ function quickNotes(){
             if(!r.ok) throw new Error('HTTP '+r.status);
             return r.status===204 ? null : r.json();
         },
-        async reload(){ this.tasks = await this.api(URLS.list); },
+        async reload(){
+            const u = this.userId ? ('?user_id='+this.userId) : '';
+            this.tasks = await this.api(URLS.listBase + u);
+        },
 
         pickDay(iso){
             this.currentISO = iso;
@@ -291,7 +303,8 @@ function quickNotes(){
             const title = this.newTitle.trim(); if (!title) return;
             this._adding = true;
             try {
-                const t = await this.api(URLS.store, { method:'POST', body:JSON.stringify({
+                const url = URLS.storeBase + (this.userId ? ('?user_id='+this.userId) : '');
+                const t = await this.api(url, { method:'POST', body:JSON.stringify({
                     title, iso: this.currentISO, status:'todo', project: this.newProj.trim() || null
                 })});
                 this.tasks.push(t);
