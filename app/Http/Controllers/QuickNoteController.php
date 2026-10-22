@@ -129,6 +129,7 @@ class QuickNoteController extends Controller
     public function destroy(QuickNote $quickNote)
     {
         abort_unless($this->canAccess($quickNote), 403);
+        QuickNote::where('carried_to_id', $quickNote->id)->update(['carried_to_id' => null]);
         $quickNote->delete();
         return response()->json(['ok' => true]);
     }

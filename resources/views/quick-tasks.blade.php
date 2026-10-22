@@ -422,7 +422,8 @@ function quickNotes(){
         async removeTask(t){
             if (!confirm('Xóa công việc này?')) return;
             await this.api(URLS.base+'/'+t.id, { method:'DELETE' });
-            this.tasks = this.tasks.filter(x=>x.id!==t.id);
+            this.tasks = this.tasks.filter(x=>x.id!==t.id)
+                                   .map(x => x.carried_to_id === t.id ? { ...x, carried_to_id: null } : x);
         },
     };
 }
