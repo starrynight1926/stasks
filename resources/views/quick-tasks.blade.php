@@ -375,19 +375,19 @@ function quickNotes(){
             const list = (t.subtasks || []).filter((_, i) => i!==idx);
             await this._patch(t.id, { subtasks: list });
         },
+        cloneOf(t){
+            return t.carried_to_id ? this.tasks.find(x => x.id === t.carried_to_id) : null;
+        },
         canCarry(t){
-            return t.iso < this.todayStr && this.effectiveStatus(t) !== 'done' && !t.carried_to_id;
+            return t.iso < this.todayStr && this.effectiveStatus(t) !== 'done' && !this.cloneOf(t);
         },
         effectiveStatus(t){
-            if (t.carried_to_id){
-                const clone = this.tasks.find(x => x.id === t.carried_to_id);
-                if (clone && clone.status === 'done') return 'done';
-            }
+            const c = this.cloneOf(t);
+            if (c && c.status === 'done') return 'done';
             return t.status;
         },
         carrySuffix(t){
-            if (!t.carried_to_id) return null;
-            const clone = this.tasks.find(x => x.id === t.carried_to_id);
+            const clone = this.cloneOf(t);
             if (!clone) return null;
             const d = new Date(clone.iso);
             const label = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
