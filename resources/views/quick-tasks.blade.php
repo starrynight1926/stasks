@@ -140,7 +140,7 @@
             <div class="w-5 h-5 rounded border border-dashed border-neutral-light flex items-center justify-center text-neutral text-sm">+</div>
             <input x-model="newTitle" @keydown.enter.prevent="if (!$event.isComposing && $event.keyCode !== 229) addNew()" type="text" placeholder="Thêm công việc cho ngày này — Enter để lưu"
                    class="flex-1 bg-transparent outline-none text-sm text-primary placeholder:text-neutral-light">
-            <input x-model="newProj" type="text" placeholder="dự án" list="projList"
+            <input x-show="projects.length" x-cloak x-model="newProj" type="text" placeholder="dự án" list="projList"
                    class="w-24 px-2 py-1 text-xs bg-surface-alt border border-border rounded text-neutral outline-none focus:border-secondary">
             <datalist id="projList">
                 <template x-for="p in projects" :key="p"><option :value="p"></option></template>
