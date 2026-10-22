@@ -315,7 +315,7 @@
 
                 {{-- Remember me --}}
                 <div class="form-check">
-                    <input type="checkbox" id="remember">
+                    <input type="checkbox" id="remember" name="remember" value="1">
                     <label for="remember">Remember me for 30 days</label>
                 </div>
 

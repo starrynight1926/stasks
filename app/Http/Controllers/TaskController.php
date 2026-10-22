@@ -12,14 +12,31 @@ use Illuminate\Http\Request;
 
 class TaskController extends Controller
 {
+    /** Scope a Task query to tasks visible to the current user (assignee OR creator in visible set). */
+    private function scopeVisible($q)
+    {
+        if (session('is_admin')) return $q;
+        $me = session('member_id') ? TeamMember::find(session('member_id')) : null;
+        if (!$me) return $q->whereRaw('1=0');
+        $visible = $me->visibleMemberIds();
+        return $q->where(function ($w) use ($visible) {
+            $w->whereIn('assignee_id', $visible)
+              ->orWhereIn('created_by', $visible);
+        });
+    }
+
     public function board()
     {
+        $base = fn($status) => $this->scopeVisible(
+            Task::with('assignee', 'tags')->where('status', $status)->whereNull('parent_id')->whereNull('archived_at')
+        )->orderBy('sort_order')->get();
+
         $columns = [
-            'todo' => ['label' => 'To Do', 'color' => '#64748B', 'tasks' => Task::with('assignee', 'tags')->where('status', 'todo')->whereNull('parent_id')->whereNull('archived_at')->orderBy('sort_order')->get()],
-            'in_progress' => ['label' => 'In Progress', 'color' => '#3B82F6', 'tasks' => Task::with('assignee', 'tags')->where('status', 'in_progress')->whereNull('parent_id')->whereNull('archived_at')->orderBy('sort_order')->get()],
-            'review' => ['label' => 'Review', 'color' => '#F59E0B', 'tasks' => Task::with('assignee', 'tags')->where('status', 'review')->whereNull('parent_id')->whereNull('archived_at')->orderBy('sort_order')->get()],
-            'done' => ['label' => 'Done', 'color' => '#10B981', 'tasks' => Task::with('assignee', 'tags')->where('status', 'done')->whereNull('parent_id')->whereNull('archived_at')->orderBy('sort_order')->get()],
-            'cancelled' => ['label' => 'Skip', 'color' => '#94A3B8', 'tasks' => Task::with('assignee', 'tags')->where('status', 'cancelled')->whereNull('parent_id')->whereNull('archived_at')->orderBy('sort_order')->get()],
+            'todo'        => ['label' => 'To Do',       'color' => '#64748B', 'tasks' => $base('todo')],
+            'in_progress' => ['label' => 'In Progress', 'color' => '#3B82F6', 'tasks' => $base('in_progress')],
+            'review'      => ['label' => 'Review',      'color' => '#F59E0B', 'tasks' => $base('review')],
+            'done'        => ['label' => 'Done',        'color' => '#10B981', 'tasks' => $base('done')],
+            'cancelled'   => ['label' => 'Skip',        'color' => '#94A3B8', 'tasks' => $base('cancelled')],
         ];
 
         return view('tasks.board', compact('columns'));
@@ -27,11 +44,11 @@ class TaskController extends Controller
 
     public function timeline()
     {
-        $tasks = Task::with('assignee', 'subtasks', 'dependencies')
-            ->whereNull('parent_id')
-            ->whereNull('archived_at')
-            ->orderBy('start_date')
-            ->get();
+        $tasks = $this->scopeVisible(
+            Task::with('assignee', 'subtasks', 'dependencies')
+                ->whereNull('parent_id')
+                ->whereNull('archived_at')
+        )->orderBy('start_date')->get();
         $project = Project::first();
 
         return view('tasks.timeline', compact('tasks', 'project'));
@@ -39,23 +56,23 @@ class TaskController extends Controller
 
     public function list()
     {
-        $tasks = Task::with('assignee', 'tags', 'project', 'subtasks')
-            ->whereNull('parent_id')
-            ->whereNull('archived_at')
-            ->orderBy('sort_order')
-            ->get();
+        $tasks = $this->scopeVisible(
+            Task::with('assignee', 'tags', 'project', 'subtasks')
+                ->whereNull('parent_id')
+                ->whereNull('archived_at')
+        )->orderBy('sort_order')->get();
 
         return view('tasks.list', compact('tasks'));
     }
 
     public function calendar()
     {
-        $tasks = Task::with('assignee', 'tags')
-            ->whereNull('parent_id')
-            ->whereNull('archived_at')
-            ->whereNotNull('due_date')
-            ->orderBy('due_date')
-            ->get();
+        $tasks = $this->scopeVisible(
+            Task::with('assignee', 'tags')
+                ->whereNull('parent_id')
+                ->whereNull('archived_at')
+                ->whereNotNull('due_date')
+        )->orderBy('due_date')->get();
 
         $calendarTasks = $tasks->map(fn($t) => [
             'id' => $t->id,
@@ -71,11 +88,11 @@ class TaskController extends Controller
 
     public function archive()
     {
-        $tasks = Task::with('assignee', 'tags')
-            ->whereNull('parent_id')
-            ->whereNotNull('archived_at')
-            ->orderByDesc('archived_at')
-            ->get();
+        $tasks = $this->scopeVisible(
+            Task::with('assignee', 'tags')
+                ->whereNull('parent_id')
+                ->whereNotNull('archived_at')
+        )->orderByDesc('archived_at')->get();
 
         return view('tasks.archive', compact('tasks'));
     }

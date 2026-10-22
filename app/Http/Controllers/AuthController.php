@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\TeamMember;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
@@ -12,13 +14,43 @@ class AuthController extends Controller
     private const ADMIN_PASSWORD = 'tieuhoa195';
     private const ADMIN_NAME = 'Bảo Bảo Lucif';
 
-    public function showLogin()
+    public function showLogin(Request $request)
     {
         if (session('authenticated')) {
             return redirect()->route('quick-tasks');
         }
 
+        $token = $request->cookie('stasks_remember');
+        if ($token) {
+            try {
+                $id = (int) Crypt::decryptString($token);
+                $member = TeamMember::with('systemRole.permissions', 'branch')->find($id);
+                if ($member && $member->username) {
+                    $this->loginMember($member);
+                    return redirect()->route('quick-tasks');
+                }
+            } catch (\Throwable $e) {
+                Cookie::queue(Cookie::forget('stasks_remember'));
+            }
+        }
+
         return view('auth.login');
+    }
+
+    private function loginMember(TeamMember $member): void
+    {
+        $perms = $member->systemRole?->permissions->pluck('key')->all() ?? [];
+        session([
+            'authenticated' => true,
+            'user_name'     => $member->name,
+            'is_admin'      => false,
+            'member_id'     => $member->id,
+            'branch_id'     => $member->branch_id,
+            'role_id'       => $member->role_id,
+            'role_name'     => $member->systemRole?->name,
+            'permissions'   => $perms,
+            'must_change_password' => (bool) $member->must_change_password,
+        ]);
     }
 
     public function login(Request $request)
@@ -44,18 +76,10 @@ class AuthController extends Controller
         if ($username !== '') {
             $member = TeamMember::with('systemRole.permissions', 'branch')->where('username', $username)->first();
             if ($member && $member->password && Hash::check($password, $member->password)) {
-                $perms = $member->systemRole?->permissions->pluck('key')->all() ?? [];
-                session([
-                    'authenticated' => true,
-                    'user_name' => $member->name,
-                    'is_admin' => false,
-                    'member_id' => $member->id,
-                    'branch_id' => $member->branch_id,
-                    'role_id' => $member->role_id,
-                    'role_name' => $member->systemRole?->name,
-                    'permissions' => $perms,
-                    'must_change_password' => (bool) $member->must_change_password,
-                ]);
+                $this->loginMember($member);
+                if ($request->boolean('remember')) {
+                    Cookie::queue('stasks_remember', Crypt::encryptString((string) $member->id), 60 * 24 * 30);
+                }
                 return redirect()->route('quick-tasks');
             }
         }
@@ -68,6 +92,7 @@ class AuthController extends Controller
         session()->forget([
             'authenticated','user_name','is_admin','member_id','branch_id','role_id','role_name','permissions','must_change_password',
         ]);
+        Cookie::queue(Cookie::forget('stasks_remember'));
 
         return redirect()->route('login');
     }
