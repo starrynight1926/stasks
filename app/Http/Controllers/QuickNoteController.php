@@ -63,6 +63,28 @@ class QuickNoteController extends Controller
         return response()->json($this->shape($quickNote->fresh()));
     }
 
+    public function carry(QuickNote $quickNote)
+    {
+        abort_if($quickNote->member_id !== session('member_id'), 403);
+        $today = now()->toDateString();
+        if ($quickNote->carried_to_id) {
+            $existing = QuickNote::find($quickNote->carried_to_id);
+            if ($existing) return response()->json(['original' => $this->shape($quickNote), 'clone' => $this->shape($existing)]);
+        }
+        $clone = QuickNote::create([
+            'member_id' => session('member_id'),
+            'title'     => $quickNote->title,
+            'iso'       => $today,
+            'status'    => 'todo',
+            'project'   => $quickNote->project,
+            'priority'  => $quickNote->priority,
+            'note'      => $quickNote->note,
+            'subtasks'  => ($quickNote->subtasks ?? []) ? array_map(fn($s)=>['id'=>$s['id'] ?? uniqid(),'title'=>$s['title'],'done'=>false], $quickNote->subtasks) : [],
+        ]);
+        $quickNote->update(['carried_to_id' => $clone->id]);
+        return response()->json(['original' => $this->shape($quickNote->fresh()), 'clone' => $this->shape($clone)]);
+    }
+
     public function destroy(QuickNote $quickNote)
     {
         abort_if($quickNote->member_id !== session('member_id'), 403);
@@ -81,6 +103,7 @@ class QuickNoteController extends Controller
             'priority' => $t->priority,
             'note'     => $t->note,
             'subtasks' => $t->subtasks ?? [],
+            'carried_to_id' => $t->carried_to_id,
         ];
     }
 }

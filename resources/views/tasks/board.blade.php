@@ -22,10 +22,11 @@
                     <span class="text-xs text-neutral bg-surface-alt px-1.5 py-0.5 rounded-full">{{ $column['tasks']->count() }}</span>
                 </div>
 
-                <div class="space-y-2.5 min-h-[200px] bg-surface-alt/50 rounded-xl p-2">
+                <div class="space-y-2.5 min-h-[200px] bg-surface-alt/50 rounded-xl p-2 kb-col" data-status="{{ $status }}">
                     @forelse($column['tasks'] as $task)
-                        <div class="bg-white rounded-lg border border-border p-3.5 hover:shadow-md transition-shadow cursor-pointer group relative"
-                             onclick="window.location='{{ route('tasks.show', $task) }}'"
+                        <div class="bg-white rounded-lg border border-border p-3.5 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group relative kb-card"
+                             data-task-id="{{ $task->id }}"
+                             onclick="if(!window.__kbDragging) window.location='{{ route('tasks.show', $task) }}'"
                              @contextmenu.prevent="$store.ctx.show($event, { taskUrl: '{{ route('tasks.show', $task) }}', editUrl: '{{ route('tasks.edit', $task) }}', deleteUrl: '{{ route('tasks.destroy', $task) }}', redirectUrl: '{{ route('tasks.board') }}' })">
                             {{-- Hover action buttons --}}
                             <div class="absolute top-2 right-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition" onclick="event.stopPropagation()">
@@ -91,4 +92,41 @@
             </div>
         @endforeach
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <script>
+    (function(){
+        const csrf = document.querySelector('meta[name="csrf-token"]').content;
+        window.__kbDragging = false;
+        document.querySelectorAll('.kb-col').forEach(col => {
+            new Sortable(col, {
+                group: 'kb',
+                animation: 150,
+                ghostClass: 'opacity-40',
+                onStart(){ window.__kbDragging = true; },
+                async onEnd(evt){
+                    setTimeout(() => { window.__kbDragging = false; }, 50);
+                    if (evt.from === evt.to) return;
+                    const id = evt.item.dataset.taskId;
+                    const newStatus = evt.to.dataset.status;
+                    try {
+                        const r = await fetch(`/tasks/${id}/status`, {
+                            method: 'PATCH',
+                            headers: { 'X-CSRF-TOKEN': csrf, 'Accept':'application/json', 'Content-Type':'application/json' },
+                            body: JSON.stringify({ status: newStatus }),
+                        });
+                        if (!r.ok) throw new Error('HTTP '+r.status);
+                        const badge = evt.to.parentElement.querySelector('span.bg-surface-alt');
+                        const prev  = evt.from.parentElement.querySelector('span.bg-surface-alt');
+                        if (badge) badge.textContent = evt.to.querySelectorAll('.kb-card').length;
+                        if (prev)  prev.textContent  = evt.from.querySelectorAll('.kb-card').length;
+                    } catch(e){
+                        alert('Không cập nhật được trạng thái: '+e.message);
+                        evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex]);
+                    }
+                },
+            });
+        });
+    })();
+    </script>
 </x-layouts.app>

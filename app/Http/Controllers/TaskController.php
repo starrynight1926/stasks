@@ -19,6 +19,7 @@ class TaskController extends Controller
             'in_progress' => ['label' => 'In Progress', 'color' => '#3B82F6', 'tasks' => Task::with('assignee', 'tags')->where('status', 'in_progress')->whereNull('parent_id')->whereNull('archived_at')->orderBy('sort_order')->get()],
             'review' => ['label' => 'Review', 'color' => '#F59E0B', 'tasks' => Task::with('assignee', 'tags')->where('status', 'review')->whereNull('parent_id')->whereNull('archived_at')->orderBy('sort_order')->get()],
             'done' => ['label' => 'Done', 'color' => '#10B981', 'tasks' => Task::with('assignee', 'tags')->where('status', 'done')->whereNull('parent_id')->whereNull('archived_at')->orderBy('sort_order')->get()],
+            'cancelled' => ['label' => 'Skip', 'color' => '#94A3B8', 'tasks' => Task::with('assignee', 'tags')->where('status', 'cancelled')->whereNull('parent_id')->whereNull('archived_at')->orderBy('sort_order')->get()],
         ];
 
         return view('tasks.board', compact('columns'));

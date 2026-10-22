@@ -46,7 +46,12 @@
                     </button>
 
                     <div class="flex-1 min-w-0">
-                        <h3 class="text-sm font-medium" :class="t.status==='done' ? 'line-through text-neutral' : 'text-primary'" x-text="t.title"></h3>
+                        <h3 class="text-sm font-medium" :class="t.status==='done' ? 'line-through text-neutral' : 'text-primary'">
+                            <span x-text="t.title"></span>
+                            <template x-if="carrySuffix(t)">
+                                <span class="text-neutral font-normal" x-text="' — ' + carrySuffix(t)"></span>
+                            </template>
+                        </h3>
                         <div class="flex items-center gap-2 mt-1 text-xs text-neutral flex-wrap">
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
                                   :class="statusPill(t.status).cls">
@@ -82,7 +87,7 @@
                         </template>
 
                         {{-- inline add buttons --}}
-                        <div class="mt-2 flex items-center gap-3 text-[11px] text-neutral">
+                        <div class="mt-2 flex items-center gap-3 text-[11px] text-neutral flex-wrap">
                             <button @click="addSubtask(t)" class="hover:text-secondary transition inline-flex items-center gap-1">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                                 Thêm task con
@@ -91,6 +96,12 @@
                                 <button @click="editNote(t)" class="hover:text-secondary transition inline-flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                     Thêm ghi chú
+                                </button>
+                            </template>
+                            <template x-if="canCarry(t)">
+                                <button @click="carryOver(t)" class="hover:text-secondary transition inline-flex items-center gap-1 font-medium">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                    Tiếp tục công việc
                                 </button>
                             </template>
                         </div>
@@ -329,6 +340,23 @@ function quickNotes(){
         async removeSubtask(t, idx){
             const list = (t.subtasks || []).filter((_, i) => i!==idx);
             await this._patch(t.id, { subtasks: list });
+        },
+        canCarry(t){
+            return t.iso < this.todayStr && t.status !== 'done' && !t.carried_to_id;
+        },
+        carrySuffix(t){
+            if (!t.carried_to_id) return null;
+            const clone = this.tasks.find(x => x.id === t.carried_to_id);
+            if (!clone) return null;
+            const d = new Date(clone.iso);
+            const label = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+            return (clone.status === 'done' ? 'Hoàn thành ' : 'Tiếp tục ') + label;
+        },
+        async carryOver(t){
+            if (!confirm('Chuyển tiếp công việc này sang hôm nay?')) return;
+            const r = await this.api(URLS.base+'/'+t.id+'/carry', { method:'POST' });
+            const i = this.tasks.findIndex(x=>x.id===t.id); if (i>=0) this.tasks[i] = r.original;
+            if (!this.tasks.find(x=>x.id===r.clone.id)) this.tasks.push(r.clone);
         },
         async removeTask(t){
             if (!confirm('Xóa công việc này?')) return;

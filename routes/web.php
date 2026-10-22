@@ -27,6 +27,7 @@ Route::middleware('simple.auth')->group(function () {
     Route::get('/api/quick-notes', [QuickNoteController::class, 'list'])->name('quick-notes.list');
     Route::post('/api/quick-notes', [QuickNoteController::class, 'store'])->name('quick-notes.store');
     Route::patch('/api/quick-notes/{quickNote}', [QuickNoteController::class, 'update'])->name('quick-notes.update');
+    Route::post('/api/quick-notes/{quickNote}/carry', [QuickNoteController::class, 'carry'])->name('quick-notes.carry');
     Route::delete('/api/quick-notes/{quickNote}', [QuickNoteController::class, 'destroy'])->name('quick-notes.destroy');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
