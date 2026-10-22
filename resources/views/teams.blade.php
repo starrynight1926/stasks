@@ -34,6 +34,7 @@
         </div>
     @endif
 
+    @if(session('is_admin'))
     {{-- Bulk Actions Bar --}}
     <div x-show="selected.length > 0" x-cloak
          class="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl">
@@ -48,6 +49,7 @@
             </button>
         </div>
     </div>
+    @endif
 
     {{-- Stats --}}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
@@ -85,7 +87,9 @@
         @forelse($members as $member)
             <div class="bg-white rounded-xl border border-border p-5 hover:shadow-md transition-shadow" :class="selected.includes({{ $member->id }}) ? 'ring-2 ring-secondary/50' : ''">
                 <div class="flex items-start gap-3 mb-4">
+                    @if(session('is_admin'))
                     <input type="checkbox" value="{{ $member->id }}" x-model.number="selected" class="w-4 h-4 mt-1 rounded border-border text-secondary focus:ring-secondary cursor-pointer">
+                    @endif
                     <div class="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-white text-sm font-bold">
                         {{ $member->initials() }}
                     </div>
