@@ -28,8 +28,14 @@ class QuickNoteController extends Controller
     private function visibleIds(): array
     {
         $me = $this->currentMember();
-        if (!$me) return [session('member_id')];
+        if (!$me) return [];
         return $me->visibleMemberIds();
+    }
+
+    private function canAccess(QuickNote $t): bool
+    {
+        if (session('is_admin')) return $t->member_id === null;
+        return in_array($t->member_id, $this->visibleIds(), true);
     }
 
     private function targetMemberId(Request $request): int|null
@@ -44,11 +50,16 @@ class QuickNoteController extends Controller
 
     public function list(Request $request)
     {
-        $visible = $this->visibleIds();
-        $filter  = $request->input('user_id');
-        $q = QuickNote::query()->whereIn('member_id', $visible);
-        if ($filter && in_array((int)$filter, $visible, true)) {
-            $q->where('member_id', (int) $filter);
+        $q = QuickNote::query();
+        if (session('is_admin')) {
+            $q->whereNull('member_id');
+        } else {
+            $visible = $this->visibleIds();
+            $q->whereIn('member_id', $visible);
+            $filter = $request->input('user_id');
+            if ($filter && in_array((int)$filter, $visible, true)) {
+                $q->where('member_id', (int) $filter);
+            }
         }
         return response()->json($q->orderBy('id')->get()->map(fn($t) => $this->shape($t)));
     }
@@ -75,7 +86,7 @@ class QuickNoteController extends Controller
 
     public function update(Request $request, QuickNote $quickNote)
     {
-        abort_unless(in_array($quickNote->member_id, $this->visibleIds(), true), 403);
+        abort_unless($this->canAccess($quickNote), 403);
         $data = $request->validate([
             'title'    => 'sometimes|string|max:255',
             'iso'      => 'sometimes|date',
@@ -94,7 +105,7 @@ class QuickNoteController extends Controller
 
     public function carry(Request $request, QuickNote $quickNote)
     {
-        abort_unless(in_array($quickNote->member_id, $this->visibleIds(), true), 403);
+        abort_unless($this->canAccess($quickNote), 403);
         $data = $request->validate(['iso' => 'nullable|date']);
         $target = $data['iso'] ?? now()->toDateString();
         if ($quickNote->carried_to_id) {
@@ -117,7 +128,7 @@ class QuickNoteController extends Controller
 
     public function destroy(QuickNote $quickNote)
     {
-        abort_unless(in_array($quickNote->member_id, $this->visibleIds(), true), 403);
+        abort_unless($this->canAccess($quickNote), 403);
         $quickNote->delete();
         return response()->json(['ok' => true]);
     }
