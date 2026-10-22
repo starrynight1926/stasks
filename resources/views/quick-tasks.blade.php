@@ -1,5 +1,6 @@
 <x-layouts.app title="Note nhanh">
-<div x-data="quickNotes()" x-init="init()" class="flex gap-6">
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<div x-data="quickNotes()" x-init="init()" class="flex gap-6" id="qtRoot">
     {{-- LEFT: content --}}
     <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between mb-6 gap-4">
@@ -17,6 +18,11 @@
                     </select>
                 @endif
                 <button @click="pickDay(todayISO())" class="px-3 py-1.5 text-sm text-neutral hover:text-primary hover:bg-surface-alt rounded-lg transition">Hôm nay</button>
+                <button @click="exportPdf()" :disabled="exporting"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-surface-alt transition disabled:opacity-50">
+                    <svg class="w-4 h-4 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    <span x-text="exporting ? 'Đang xuất…' : 'Xuất PDF'"></span>
+                </button>
             </div>
         </div>
 
@@ -227,6 +233,7 @@ function quickNotes(){
         statusOpts: STATUS_OPTS,
         openStatusId: null,
         userId: @json(session('member_id')),
+        exporting: false,
 
         async init(){ await this.reload(); },
         todayISO(){ return toISO(new Date()); },
@@ -390,6 +397,27 @@ function quickNotes(){
             const i = this.tasks.findIndex(x=>x.id===t.id); if (i>=0) this.tasks[i] = r.original;
             if (!this.tasks.find(x=>x.id===r.clone.id)) this.tasks.push(r.clone);
             this.pickDay(target);
+        },
+        async exportPdf(){
+            if (this.exporting) return;
+            this.exporting = true;
+            try {
+                const node = document.getElementById('qtRoot');
+                const d = new Date(this.currentISO);
+                const name = 'note-nhanh-' + this.currentISO + '.pdf';
+                await html2pdf().set({
+                    margin: 10,
+                    filename: name,
+                    image: { type: 'jpeg', quality: 0.95 },
+                    html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+                    pagebreak: { mode: ['css', 'legacy'] },
+                }).from(node).save();
+            } catch (e) {
+                alert('Không xuất được PDF: ' + e.message);
+            } finally {
+                this.exporting = false;
+            }
         },
         async removeTask(t){
             if (!confirm('Xóa công việc này?')) return;
