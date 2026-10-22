@@ -45,16 +45,16 @@
             </template>
             <template x-for="t in dayTasks" :key="t.id">
                 <div class="bg-white border border-border rounded-xl p-3 flex items-start gap-3 hover:shadow-sm transition"
-                     :class="t.status==='done' ? 'opacity-80' : ''">
+                     :class="effectiveStatus(t)==='done' ? 'opacity-80' : ''">
                     {{-- checkbox --}}
                     <button @click="toggleDone(t)"
                             class="w-5 h-5 mt-0.5 rounded border flex-shrink-0 flex items-center justify-center transition"
-                            :class="t.status==='done' ? 'bg-secondary border-secondary' : 'border-neutral-light hover:bg-surface-alt'">
-                        <svg x-show="t.status==='done'" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                            :class="effectiveStatus(t)==='done' ? 'bg-secondary border-secondary' : 'border-neutral-light hover:bg-surface-alt'">
+                        <svg x-show="effectiveStatus(t)==='done'" class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                     </button>
 
                     <div class="flex-1 min-w-0">
-                        <h3 class="text-sm font-medium" :class="t.status==='done' ? 'line-through text-neutral' : 'text-primary'">
+                        <h3 class="text-sm font-medium" :class="effectiveStatus(t)==='done' ? 'line-through text-neutral' : 'text-primary'">
                             <span x-text="t.title"></span>
                             <template x-if="carrySuffix(t)">
                                 <span class="text-neutral font-normal" x-text="' — ' + carrySuffix(t)"></span>
@@ -62,9 +62,9 @@
                         </h3>
                         <div class="flex items-center gap-2 mt-1 text-xs text-neutral flex-wrap">
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
-                                  :class="statusPill(t.status).cls">
-                                <span class="w-1.5 h-1.5 rounded-full" :class="statusPill(t.status).dot"></span>
-                                <span x-text="statusPill(t.status).label"></span>
+                                  :class="statusPill(effectiveStatus(t)).cls">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="statusPill(effectiveStatus(t)).dot"></span>
+                                <span x-text="statusPill(effectiveStatus(t)).label"></span>
                             </span>
                             <span x-text="'· ' + (t.project || '—')"></span>
                             <template x-if="t.priority"><span x-text="'· ưu tiên ' + t.priority"></span></template>
@@ -319,6 +319,11 @@ function quickNotes(){
             return updated;
         },
         async toggleDone(t){
+            // if the task is only "effectively done" via a done clone, toggle that clone instead
+            if (t.status !== 'done' && this.effectiveStatus(t) === 'done'){
+                const clone = this.tasks.find(x => x.id === t.carried_to_id);
+                if (clone) return this.toggleDone(clone);
+            }
             const next = t.status==='done' ? 'todo' : 'done';
             await this._patch(t.id, { status:next });
         },
@@ -357,7 +362,14 @@ function quickNotes(){
             await this._patch(t.id, { subtasks: list });
         },
         canCarry(t){
-            return t.iso < this.todayStr && t.status !== 'done' && !t.carried_to_id;
+            return t.iso < this.todayStr && this.effectiveStatus(t) !== 'done' && !t.carried_to_id;
+        },
+        effectiveStatus(t){
+            if (t.carried_to_id){
+                const clone = this.tasks.find(x => x.id === t.carried_to_id);
+                if (clone && clone.status === 'done') return 'done';
+            }
+            return t.status;
         },
         carrySuffix(t){
             if (!t.carried_to_id) return null;
