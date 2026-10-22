@@ -63,10 +63,11 @@ class QuickNoteController extends Controller
         return response()->json($this->shape($quickNote->fresh()));
     }
 
-    public function carry(QuickNote $quickNote)
+    public function carry(Request $request, QuickNote $quickNote)
     {
         abort_if($quickNote->member_id !== session('member_id'), 403);
-        $today = now()->toDateString();
+        $data = $request->validate(['iso' => 'nullable|date']);
+        $target = $data['iso'] ?? now()->toDateString();
         if ($quickNote->carried_to_id) {
             $existing = QuickNote::find($quickNote->carried_to_id);
             if ($existing) return response()->json(['original' => $this->shape($quickNote), 'clone' => $this->shape($existing)]);
@@ -74,7 +75,7 @@ class QuickNoteController extends Controller
         $clone = QuickNote::create([
             'member_id' => session('member_id'),
             'title'     => $quickNote->title,
-            'iso'       => $today,
+            'iso'       => $target,
             'status'    => 'todo',
             'project'   => $quickNote->project,
             'priority'  => $quickNote->priority,

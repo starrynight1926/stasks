@@ -23,7 +23,10 @@
                 </div>
 
                 <div class="space-y-2.5 min-h-[200px] bg-surface-alt/50 rounded-xl p-2 kb-col" data-status="{{ $status }}">
-                    @forelse($column['tasks'] as $task)
+                    <div class="kb-empty text-center py-8 pointer-events-none {{ $column['tasks']->count() ? 'hidden' : '' }}">
+                        <p class="text-xs text-neutral">No tasks</p>
+                    </div>
+                    @foreach($column['tasks'] as $task)
                         <div class="bg-white rounded-lg border border-border p-3.5 hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group relative kb-card"
                              data-task-id="{{ $task->id }}"
                              onclick="if(!window.__kbDragging) window.location='{{ route('tasks.show', $task) }}'"
@@ -83,11 +86,7 @@
                                 </div>
                             @endif
                         </div>
-                    @empty
-                        <div class="text-center py-8">
-                            <p class="text-xs text-neutral">No tasks</p>
-                        </div>
-                    @endforelse
+                    @endforeach
                 </div>
             </div>
         @endforeach
@@ -98,13 +97,23 @@
     (function(){
         const csrf = document.querySelector('meta[name="csrf-token"]').content;
         window.__kbDragging = false;
+        function syncEmpty(){
+            document.querySelectorAll('.kb-col').forEach(col => {
+                const empty = col.querySelector('.kb-empty');
+                if (!empty) return;
+                empty.classList.toggle('hidden', !!col.querySelector('.kb-card'));
+            });
+        }
         document.querySelectorAll('.kb-col').forEach(col => {
             new Sortable(col, {
                 group: 'kb',
                 animation: 150,
                 ghostClass: 'opacity-40',
+                filter: '.kb-empty',
+                draggable: '.kb-card',
                 onStart(){ window.__kbDragging = true; },
                 async onEnd(evt){
+                    syncEmpty();
                     setTimeout(() => { window.__kbDragging = false; }, 50);
                     if (evt.from === evt.to) return;
                     const id = evt.item.dataset.taskId;
@@ -123,10 +132,12 @@
                     } catch(e){
                         alert('Không cập nhật được trạng thái: '+e.message);
                         evt.from.insertBefore(evt.item, evt.from.children[evt.oldIndex]);
+                        syncEmpty();
                     }
                 },
             });
         });
+        syncEmpty();
     })();
     </script>
 </x-layouts.app>

@@ -107,11 +107,12 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-1 flex-shrink-0 relative" x-data="{ open:false }" @click.outside="open=false">
-                        <button @click="open = !open" class="px-2 py-1 text-xs border border-border rounded-md hover:bg-surface-alt transition">Trạng thái ▾</button>
-                        <div x-show="open" x-cloak class="absolute right-0 top-9 z-30 w-52 bg-white border border-border rounded-xl shadow-lg py-1">
+                    <div class="flex items-center gap-1 flex-shrink-0 relative">
+                        <button @click.stop="openStatusId = (openStatusId===t.id ? null : t.id)" class="px-2 py-1 text-xs border border-border rounded-md hover:bg-surface-alt transition">Trạng thái ▾</button>
+                        <div x-show="openStatusId===t.id" x-cloak @click.outside="openStatusId=null"
+                             class="absolute right-0 top-9 z-50 w-52 bg-white border border-border rounded-xl shadow-lg py-1">
                             <template x-for="opt in statusOpts" :key="opt.key">
-                                <button @click="open=false; changeStatus(t, opt.key)"
+                                <button @click="openStatusId=null; changeStatus(t, opt.key)"
                                         class="w-full text-left flex items-center gap-2 px-3 py-2 text-sm text-primary hover:bg-surface-alt transition">
                                     <span class="w-2 h-2 rounded-full" :class="opt.dot"></span>
                                     <span x-text="opt.label"></span>
@@ -216,6 +217,7 @@ function quickNotes(){
         calMonth: (() => { const d=new Date(); d.setDate(1); return d; })(),
         newTitle: '', newProj: '',
         statusOpts: STATUS_OPTS,
+        openStatusId: null,
 
         async init(){ await this.reload(); },
         todayISO(){ return toISO(new Date()); },
@@ -353,10 +355,16 @@ function quickNotes(){
             return (clone.status === 'done' ? 'Hoàn thành ' : 'Tiếp tục ') + label;
         },
         async carryOver(t){
-            if (!confirm('Chuyển tiếp công việc này sang hôm nay?')) return;
-            const r = await this.api(URLS.base+'/'+t.id+'/carry', { method:'POST' });
+            const def = this.todayStr;
+            const iso = prompt('Chuyển tiếp sang ngày nào? (YYYY-MM-DD)', def);
+            if (iso===null) return;
+            const target = iso.trim(); if (!target) return;
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(target)){ alert('Ngày không hợp lệ, định dạng YYYY-MM-DD'); return; }
+            if (target < this.todayStr && !confirm('Ngày bạn chọn ở quá khứ. Vẫn tiếp tục?')) return;
+            const r = await this.api(URLS.base+'/'+t.id+'/carry', { method:'POST', body:JSON.stringify({ iso: target }) });
             const i = this.tasks.findIndex(x=>x.id===t.id); if (i>=0) this.tasks[i] = r.original;
             if (!this.tasks.find(x=>x.id===r.clone.id)) this.tasks.push(r.clone);
+            this.pickDay(target);
         },
         async removeTask(t){
             if (!confirm('Xóa công việc này?')) return;
