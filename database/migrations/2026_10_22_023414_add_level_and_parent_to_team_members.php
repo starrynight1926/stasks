@@ -9,25 +9,31 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('team_members', function (Blueprint $table) {
-            $table->string('level', 20)->default('member')->after('role');
-            $table->unsignedBigInteger('parent_id')->nullable()->after('level')->index();
+            if (!Schema::hasColumn('team_members', 'level')) {
+                $table->string('level', 20)->default('member')->after('role');
+            }
+            if (!Schema::hasColumn('team_members', 'parent_id')) {
+                $table->unsignedBigInteger('parent_id')->nullable()->after('level')->index();
+            }
         });
 
-        // Default fallback department
-        $exists = DB::table('departments')->where('name', '-- Chưa phân --')->first();
-        if (!$exists) {
-            DB::table('departments')->insert([
-                'name' => '-- Chưa phân --',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+        if (Schema::hasTable('departments')) {
+            $exists = DB::table('departments')->where('name', '-- Chưa phân --')->first();
+            if (!$exists) {
+                DB::table('departments')->insert([
+                    'name' => '-- Chưa phân --',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
         }
     }
 
     public function down(): void
     {
         Schema::table('team_members', function (Blueprint $table) {
-            $table->dropColumn(['level', 'parent_id']);
+            if (Schema::hasColumn('team_members', 'parent_id')) $table->dropColumn('parent_id');
+            if (Schema::hasColumn('team_members', 'level')) $table->dropColumn('level');
         });
     }
 };
