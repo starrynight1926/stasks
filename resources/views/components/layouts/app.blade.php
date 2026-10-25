@@ -52,6 +52,17 @@
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
 </head>
 <body class="min-h-screen bg-surface" x-data="{ sidebarOpen: true }">
+    @if(session('impersonator_admin'))
+        <div class="fixed top-0 left-0 right-0 z-[60] bg-amber-500 text-white text-xs px-4 py-1.5 flex items-center justify-center gap-3 shadow">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M4.93 19h14.14a2 2 0 001.74-3L13.74 4a2 2 0 00-3.48 0L3.19 16a2 2 0 001.74 3z"/></svg>
+            <span>Đang giả lập: <b>{{ session('impersonated_name') }}</b></span>
+            <form action="{{ route('impersonate.stop') }}" method="POST" class="inline">
+                @csrf
+                <button type="submit" class="ml-2 px-2.5 py-0.5 rounded bg-white/20 hover:bg-white/30 transition font-medium">Thoát giả lập</button>
+            </form>
+        </div>
+        <style>header.fixed{top:28px !important} aside.fixed{top:70px !important} body>div.flex{padding-top:3.5rem !important; margin-top:28px}</style>
+    @endif
     {{-- Top Navigation --}}
     <header class="fixed top-0 left-0 right-0 z-50 h-14 bg-white border-b border-border flex items-center px-4">
         <div class="flex items-center gap-3">
@@ -103,6 +114,12 @@
                         <a href="{{ route('account.password') }}" class="w-full text-left px-3 py-2 text-xs text-primary hover:bg-surface-alt transition flex items-center gap-2">
                             <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                             Đổi mật khẩu
+                        </a>
+                    @endif
+                    @if(session('is_admin'))
+                        <a href="{{ route('teams') }}?impersonate=1" class="w-full text-left px-3 py-2 text-xs text-primary hover:bg-surface-alt transition flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 text-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            Giả lập đăng nhập
                         </a>
                     @endif
                     <form action="{{ route('logout') }}" method="POST">

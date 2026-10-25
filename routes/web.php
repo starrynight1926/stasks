@@ -35,6 +35,9 @@ Route::middleware('simple.auth')->group(function () {
     Route::get('/account/password', [AuthController::class, 'showChangePassword'])->name('account.password');
     Route::post('/account/password', [AuthController::class, 'changePassword'])->name('account.password.update');
 
+    Route::post('/impersonate/{teamMember}', [AuthController::class, 'impersonate'])->name('impersonate');
+    Route::post('/impersonate-stop', [AuthController::class, 'stopImpersonate'])->name('impersonate.stop');
+
     Route::prefix('tasks')->name('tasks.')->group(function () {
         Route::get('/board', [TaskController::class, 'board'])->name('board');
         Route::get('/timeline', [TaskController::class, 'timeline'])->name('timeline');
