@@ -104,8 +104,10 @@ class TaskController extends Controller
         $tags = Tag::all();
         $projects = Project::all();
         $tasks = Task::whereNull('parent_id')->get();
+        $companies = \App\Models\Company::orderBy('name')->get();
+        $enterprise = \App\Support\EnterpriseAccess::isOn();
 
-        return view('tasks.create', compact('members', 'departments', 'tags', 'projects', 'tasks'));
+        return view('tasks.create', compact('members', 'departments', 'tags', 'projects', 'tasks', 'companies', 'enterprise'));
     }
 
     public function store(Request $request)
@@ -119,11 +121,15 @@ class TaskController extends Controller
             'due_date' => 'nullable|date',
             'start_date' => 'nullable|date',
             'visibility' => 'nullable|string|max:50',
+            'scope' => 'nullable|in:personal,department,company',
+            'company_id' => 'nullable|exists:companies,id',
+            'is_cross_dept' => 'nullable|boolean',
             'tags' => 'nullable|array',
             'tags.*' => 'exists:tags,id',
             'subtasks' => 'nullable|array',
             'subtasks.*.name' => 'nullable|string|max:200',
             'subtasks.*.weight' => 'nullable|integer|min:0|max:100',
+            'subtasks.*.assignee_id' => 'nullable|exists:team_members,id',
             'dependencies' => 'nullable|array',
             'dependencies.*' => 'exists:tasks,id',
         ]);
@@ -141,6 +147,9 @@ class TaskController extends Controller
             'start_date' => $validated['start_date'] ?? null,
             'due_date' => $validated['due_date'] ?? null,
             'visibility' => $validated['visibility'] ?? 'public',
+            'scope' => $validated['scope'] ?? 'personal',
+            'company_id' => ($validated['scope'] ?? null) === 'company' ? ($validated['company_id'] ?? null) : null,
+            'is_cross_dept' => (bool) ($validated['is_cross_dept'] ?? false),
             'progress' => 0,
             'sort_order' => Task::where('status', 'todo')->whereNull('parent_id')->max('sort_order') + 1,
             'created_by' => TaskOwnership::currentUser() ?: null,
@@ -165,6 +174,8 @@ class TaskController extends Controller
                         'priority' => $validated['priority'],
                         'weight' => $subtaskData['weight'] ?? 0,
                         'progress' => 0,
+                        'assignee_id' => $task->is_cross_dept ? ($subtaskData['assignee_id'] ?? null) : null,
+                        'scope' => $task->scope,
                     ]);
                 }
             }

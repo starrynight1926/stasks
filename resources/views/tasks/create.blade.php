@@ -17,8 +17,10 @@
 
     <form action="{{ route('tasks.store') }}" method="POST" x-data="{
         priority: '{{ old('priority', 'high') }}',
+        scope: '{{ old('scope', $enterprise ? 'department' : 'personal') }}',
+        crossDept: {{ old('is_cross_dept') ? 'true' : 'false' }},
         selectedTags: {{ json_encode(old('tags', [])) }},
-        subtasks: {{ json_encode(old('subtasks', [['name' => '', 'weight' => 0]])) }}
+        subtasks: {{ json_encode(old('subtasks', [['name' => '', 'weight' => 0, 'assignee_id' => '']])) }}
     }" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         @csrf
         <div class="lg:col-span-2 space-y-6">
@@ -70,13 +72,21 @@
             <div class="bg-white rounded-xl border border-border p-5">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-sm font-semibold text-primary">Sub-Tasks & Weighting</h3>
-                    <button type="button" @click="subtasks.push({ name: '', weight: 0 })" class="text-xs text-secondary hover:underline">+ Add Sub-task</button>
+                    <button type="button" @click="subtasks.push({ name: '', weight: 0, assignee_id: '' })" class="text-xs text-secondary hover:underline">+ Add Sub-task</button>
                 </div>
                 <div class="space-y-2.5">
                     <template x-for="(subtask, index) in subtasks" :key="index">
                         <div class="flex items-center gap-3 p-3 bg-surface-alt rounded-lg">
                             <svg class="w-4 h-4 text-neutral flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/></svg>
                             <input type="text" x-model="subtask.name" :name="'subtasks['+index+'][name]'" class="flex-1 text-sm bg-transparent outline-none" placeholder="Sub-task name">
+                            <template x-if="crossDept">
+                                <select x-model="subtask.assignee_id" :name="'subtasks['+index+'][assignee_id]'" class="text-xs border border-border rounded px-1 py-0.5 outline-none focus:border-secondary bg-white max-w-[140px]">
+                                    <option value="">@ ai?</option>
+                                    @foreach($members as $member)
+                                        <option value="{{ $member->id }}">{{ $member->name }}</option>
+                                    @endforeach
+                                </select>
+                            </template>
                             <div class="flex items-center gap-1 flex-shrink-0">
                                 <input type="number" x-model="subtask.weight" :name="'subtasks['+index+'][weight]'" min="0" max="100" class="w-12 text-sm text-center border border-border rounded px-1 py-0.5 outline-none focus:border-secondary">
                                 <span class="text-xs text-neutral">%</span>
@@ -98,6 +108,36 @@
 
             <div class="bg-white rounded-xl border border-border p-5 space-y-4">
                 <h3 class="text-sm font-semibold text-primary">Attributes</h3>
+
+                @if($enterprise)
+                    <div class="pb-3 border-b border-border-light">
+                        <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Phạm vi (Doanh nghiệp)</label>
+                        <input type="hidden" name="scope" :value="scope">
+                        <div class="flex border border-border rounded-lg overflow-hidden text-xs">
+                            @foreach(['personal' => 'Cá nhân', 'department' => 'Phòng ban', 'company' => 'Công ty'] as $key => $label)
+                                <button type="button" @click="scope = '{{ $key }}'" :class="scope === '{{ $key }}' ? 'bg-secondary text-white' : 'text-neutral hover:bg-surface-alt'" class="flex-1 py-1.5 font-medium transition">{{ $label }}</button>
+                            @endforeach
+                        </div>
+
+                        <div x-show="scope === 'company'" x-cloak class="mt-3">
+                            <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Công ty</label>
+                            <select name="company_id" class="w-full px-3 py-2 text-sm border border-border rounded-lg outline-none focus:border-secondary transition">
+                                <option value="">Chọn công ty...</option>
+                                @foreach($companies as $co)
+                                    <option value="{{ $co->id }}" {{ old('company_id') == $co->id ? 'selected' : '' }}>{{ $co->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <label class="mt-3 flex items-center gap-2 cursor-pointer text-xs text-primary">
+                            <input type="checkbox" x-model="crossDept" class="w-4 h-4 rounded border-border text-secondary focus:ring-secondary">
+                            <input type="hidden" name="is_cross_dept" :value="crossDept ? 1 : 0">
+                            Liên phòng ban (cho phép @ người ở phòng khác vào subtask)
+                        </label>
+                    </div>
+                @else
+                    <input type="hidden" name="scope" value="personal">
+                @endif
 
                 <div>
                     <label class="block text-xs font-semibold text-neutral uppercase tracking-wider mb-1.5">Assignee</label>
