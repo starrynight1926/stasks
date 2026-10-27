@@ -3,7 +3,7 @@
 > **Nguyên tắc tối thượng:** Classic hiện tại giữ nguyên, không đụng. Enterprise là ver mới bật qua flag/toggle, chạy song song.
 > **Admin bá đạo** của user giữ nguyên — `session('is_admin')` vẫn return early mọi nơi.
 
-Trạng thái: **đang chờ user chốt open questions** (xem mục 7). Mai trả lời rồi mới viết plan chi tiết + code.
+Trạng thái: **đã chốt open questions ngày 27/10/2026** — xem mục 7 (phần "Chốt"). Chuẩn bị viết migration + code.
 
 ---
 
@@ -119,7 +119,22 @@ Mỗi bước commit riêng, không gộp.
 
 ---
 
-## 7. Open questions — mai user chốt
+## 7. Chốt (27/10/2026)
+
+| # | Chốt |
+|---|---|
+| 1 | **Toggle theo tài khoản**, không per-task. Login mặc định vào bản **Người dùng**. Trong menu avatar có nút **"Chuyển sang ver Doanh nghiệp"** chỉ hiện khi user có quyền (thuộc 1 công ty). Mode hiện tại lưu trong `session('enterprise_mode')`. |
+| 2 | **(a) global level** — giữ `team_members.level`, không làm bảng nhiều-nhiều. |
+| 3 | 1 user = **1 phòng ban**. Hỗ trợ liên phòng qua "cross-dept tag" (xem mục 9). |
+| 4 | **3 cấp** `personal / department / company` — ảnh hưởng cả scope visibility lẫn phạm vi `@`. |
+| 5 | Trang quản trị **riêng** tại `/enterprise/manage` — không đụng `/teams` + `/departments` cũ (sau này tách bản Free vs Enterprise). |
+| 6 | Admin hệ thống **tạo công ty + chỉ định "Admin vận hành"** (nâng 1 user lên `level=manager` + gắn `company_id` của công ty đó). Admin vận hành tự quản phòng ban + nhân sự trong công ty mình. |
+| 7 | Tên hiển thị: **"Người dùng" / "Doanh nghiệp"**. |
+| 8 | Task cũ migrate về `scope = 'personal'` (KHÔNG để null) để tránh phân nhánh thêm. |
+
+---
+
+## 8. Open questions — đã đóng ✅
 
 1. **Mode toggle:** per-task (chọn mỗi lần tạo) hay per-user setting ("tao luôn làm việc enterprise")?
    - *Đề xuất: per-task, 1 bảng cùng chứa cả 2 loại.*
@@ -134,7 +149,35 @@ Mỗi bước commit riêng, không gộp.
 
 ---
 
-## 8. Liên quan upgrade khác
+## 9. Cross-department tag (liên phòng ban)
+
+Chi tiết user bổ sung ngày 27/10:
+
+- Khi tạo task có nhiều subtask, user có thể tick **"Liên phòng ban"** → trong từng subtask có thể `@` user ở phòng khác.
+- Subtask được tag xuất hiện trong **danh sách công việc của người được tag** (coi như task của họ).
+- Người được tag **chỉ chỉnh được status của chính subtask mình được tag** (bao gồm "Từ chối"). KHÔNG chỉnh được:
+  - Status task tổng.
+  - Status subtask khác.
+  - Nội dung subtask.
+- Người tạo task vẫn giữ full quyền.
+
+### 9.1 Data model (nháp)
+
+- `tasks` thêm `is_cross_dept` boolean, default false.
+- `subtasks` hiện là JSON cột trong `tasks.subtasks`. Để @ user cần cấu trúc rõ hơn:
+  - Giữ JSON nhưng mở rộng mỗi subtask: `{ id, title, done, assigned_member_id?, status? }`.
+  - Hoặc tách thành bảng `subtasks` riêng (`id, task_id, title, done, assigned_member_id, status, position`). → **Nên tách** để query "công việc được tag cho tôi" dễ, index assigned_member_id.
+- Thêm scope "subtask của tôi" vào `scopeVisible()`: user thấy task cha khi có bất kỳ subtask nào `assigned_member_id = me`, nhưng chỉ ở **read-only** với các phần khác.
+
+### 9.2 Permission
+
+- `can_edit_task(user, task)` = creator OR assignee (classic) OR trong scope visible.
+- `can_edit_subtask(user, subtask)` = can_edit_task(user, subtask.task) OR `subtask.assigned_member_id = user.id`.
+- Enforce ở `TaskController::update` + endpoint subtask riêng.
+
+---
+
+## 10. Liên quan upgrade khác
 
 - Upgrade 01 (department view + mention) không bị block bởi cái này — có thể làm trước, nhưng khi làm part B (notification) nên cân nhắc để `@all` scope theo context enterprise (`@all` trong task company = toàn công ty, trong task department = toàn phòng).
 - Nếu user chốt làm Upgrade 02 trước → Upgrade 01 part B sẽ ăn theo scope mới dễ hơn.
