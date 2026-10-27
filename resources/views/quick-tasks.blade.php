@@ -126,6 +126,18 @@
                                     Tiếp tục công việc
                                 </button>
                             </template>
+                            <template x-if="carryChainLabel(t)">
+                                <span class="text-neutral italic inline-flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                    <template x-for="(c, i) in carryChain(t)" :key="c.id">
+                                        <span>
+                                            <template x-if="i===0"><span>Đang tiếp tục vào ngày </span></template>
+                                            <template x-if="i>0"><span>, </span></template>
+                                            <button type="button" @click="pickDay(c.iso)" class="underline hover:text-secondary" x-text="new Date(c.iso).getDate() + '/' + (new Date(c.iso).getMonth()+1)"></button>
+                                        </span>
+                                    </template>
+                                </span>
+                            </template>
                         </div>
                     </div>
 
@@ -377,6 +389,25 @@ function quickNotes(){
         },
         cloneOf(t){
             return t.carried_to_id ? this.tasks.find(x => x.id === t.carried_to_id) : null;
+        },
+        carryChain(t){
+            const chain = [];
+            const seen = new Set([t.id]);
+            let cur = this.cloneOf(t);
+            while (cur && !seen.has(cur.id)) {
+                chain.push(cur);
+                seen.add(cur.id);
+                cur = this.cloneOf(cur);
+            }
+            return chain;
+        },
+        carryChainLabel(t){
+            const chain = this.carryChain(t);
+            if (!chain.length) return null;
+            return 'Đang tiếp tục vào ngày ' + chain.map(c => {
+                const d = new Date(c.iso);
+                return `${d.getDate()}/${d.getMonth()+1}`;
+            }).join(', ');
         },
         canCarry(t){
             return t.iso < this.todayStr && this.effectiveStatus(t) !== 'done' && !this.cloneOf(t);
