@@ -161,19 +161,24 @@ Chi tiết user bổ sung ngày 27/10:
   - Nội dung subtask.
 - Người tạo task vẫn giữ full quyền.
 
-### 9.1 Data model (nháp)
+### 9.1 Data model
 
-- `tasks` thêm `is_cross_dept` boolean, default false.
-- `subtasks` hiện là JSON cột trong `tasks.subtasks`. Để @ user cần cấu trúc rõ hơn:
-  - Giữ JSON nhưng mở rộng mỗi subtask: `{ id, title, done, assigned_member_id?, status? }`.
-  - Hoặc tách thành bảng `subtasks` riêng (`id, task_id, title, done, assigned_member_id, status, position`). → **Nên tách** để query "công việc được tag cho tôi" dễ, index assigned_member_id.
-- Thêm scope "subtask của tôi" vào `scopeVisible()`: user thấy task cha khi có bất kỳ subtask nào `assigned_member_id = me`, nhưng chỉ ở **read-only** với các phần khác.
+Subtask trong hệ thống chính thực chất là **task con** qua `tasks.parent_id`
+(đã có sẵn), nên không tách bảng mới. Chỉ cần:
+
+- `tasks.is_cross_dept` boolean trên task **cha** (đã thêm ở migration bước 1).
+- Task con có sẵn `assignee_id` → chính là người được @ (tức "được tag").
+
+Scope visibility: user thấy task cha ở chế độ **read-only** khi task con bất
+kỳ của nó có `assignee_id = me` AND task cha `is_cross_dept = true`.
 
 ### 9.2 Permission
 
-- `can_edit_task(user, task)` = creator OR assignee (classic) OR trong scope visible.
-- `can_edit_subtask(user, subtask)` = can_edit_task(user, subtask.task) OR `subtask.assigned_member_id = user.id`.
-- Enforce ở `TaskController::update` + endpoint subtask riêng.
+- `can_edit_task(user, task)` = creator OR trong scope visible với quyền chỉnh.
+- `can_edit_subtask(user, subtask)` = can_edit_task(user, subtask.parent) OR
+  (`subtask.assignee_id = user.id` AND chỉ sửa `status`).
+- Enforce ở `TaskController::update` — tách endpoint hoặc check trong update
+  hiện có (ưu tiên gom vào update, chỉ validate thêm).
 
 ---
 

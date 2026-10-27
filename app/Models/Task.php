@@ -19,7 +19,13 @@ class Task extends Model
             'archived_at' => 'datetime',
             'done_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'is_cross_dept' => 'boolean',
         ];
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     public function lifecycleState(): string
