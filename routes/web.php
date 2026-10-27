@@ -92,6 +92,14 @@ Route::middleware('simple.auth')->group(function () {
         Route::delete('/departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
     });
 
+    Route::prefix('enterprise')->name('enterprise.')->group(function () {
+        Route::get('/manage', [\App\Http\Controllers\EnterpriseController::class, 'index'])->name('manage');
+        Route::post('/companies', [\App\Http\Controllers\EnterpriseController::class, 'storeCompany'])->name('companies.store');
+        Route::post('/companies/{company}/ops-admin', [\App\Http\Controllers\EnterpriseController::class, 'assignOpsAdmin'])->name('ops.assign');
+        Route::post('/departments', [\App\Http\Controllers\EnterpriseController::class, 'storeDepartment'])->name('departments.store');
+        Route::post('/members/assign', [\App\Http\Controllers\EnterpriseController::class, 'assignMember'])->name('members.assign');
+    });
+
     Route::prefix('organization')->name('org.')->middleware('admin.only')->group(function () {
         Route::get('/companies', [CompanyController::class, 'index'])->name('companies.index');
         Route::post('/companies', [CompanyController::class, 'store'])->name('companies.store');
