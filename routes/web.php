@@ -38,6 +38,14 @@ Route::middleware('simple.auth')->group(function () {
     Route::post('/impersonate/{teamMember}', [AuthController::class, 'impersonate'])->name('impersonate');
     Route::post('/impersonate-stop', [AuthController::class, 'stopImpersonate'])->name('impersonate.stop');
 
+    Route::post('/mode/toggle', function (\Illuminate\Http\Request $request) {
+        if (!\App\Support\EnterpriseAccess::canUse()) {
+            abort(403);
+        }
+        session(['enterprise_mode' => !session('enterprise_mode')]);
+        return redirect($request->input('back', url()->previous()));
+    })->name('mode.toggle');
+
     Route::prefix('tasks')->name('tasks.')->group(function () {
         Route::get('/board', [TaskController::class, 'board'])->name('board');
         Route::get('/timeline', [TaskController::class, 'timeline'])->name('timeline');

@@ -153,7 +153,7 @@ class AuthController extends Controller
     {
         session()->forget([
             'authenticated','user_name','is_admin','member_id','branch_id','role_id','role_name','level','permissions','must_change_password',
-            'impersonator_admin','impersonated_name',
+            'impersonator_admin','impersonated_name','enterprise_mode',
         ]);
         Cookie::queue(Cookie::forget('stasks_remember'));
 
