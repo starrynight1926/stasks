@@ -271,6 +271,7 @@ class TaskController extends Controller
 
     public function update(Request $request, Task $task)
     {
+        abort_unless(\App\Support\EnterpriseAccess::canEditTask($task), 403);
         $validated = $request->validate([
             'title' => 'required|string|max:200',
             'description' => 'nullable|string|max:5000',
@@ -304,6 +305,7 @@ class TaskController extends Controller
 
     public function destroy(Request $request, Task $task)
     {
+        abort_unless(\App\Support\EnterpriseAccess::canEditTask($task), 403);
         $parentId = $task->parent_id;
 
         if ($parentId) {
@@ -397,6 +399,7 @@ class TaskController extends Controller
 
     public function updateStatus(Request $request, Task $task)
     {
+        abort_unless(\App\Support\EnterpriseAccess::canEditSubtaskStatus($task), 403);
         $validated = $request->validate([
             'status' => 'required|in:todo,in_progress,review,done,cancelled',
         ]);
@@ -510,6 +513,11 @@ class TaskController extends Controller
 
     public function updateSubtask(Request $request, Task $task)
     {
+        $parent = $task->parent;
+        $canEditAll = $parent ? \App\Support\EnterpriseAccess::canEditTask($parent) : \App\Support\EnterpriseAccess::canEditTask($task);
+        $canEditStatus = \App\Support\EnterpriseAccess::canEditSubtaskStatus($task);
+        abort_unless($canEditAll || $canEditStatus, 403);
+
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:200',
             'weight' => 'sometimes|nullable|integer|min:0|max:100',
@@ -517,6 +525,11 @@ class TaskController extends Controller
             'status' => 'sometimes|in:todo,in_progress,review,done,cancelled',
             'due_date' => 'sometimes|nullable|date',
         ]);
+
+        if (!$canEditAll && $canEditStatus) {
+            // Cross-dept assignee: chỉ cho sửa status, bỏ các field khác.
+            $validated = array_intersect_key($validated, ['status' => true]);
+        }
 
         $task->update($validated);
 
@@ -540,6 +553,7 @@ class TaskController extends Controller
 
     public function storeSubtask(Request $request, Task $task)
     {
+        abort_unless(\App\Support\EnterpriseAccess::canEditTask($task), 403);
         $validated = $request->validate([
             'title' => 'required|string|max:200',
             'weight' => 'nullable|integer|min:0|max:100',
