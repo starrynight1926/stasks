@@ -16,12 +16,38 @@ class TaskController extends Controller
     private function scopeVisible($q)
     {
         if (session('is_admin')) return $q;
-        $me = session('member_id') ? TeamMember::find(session('member_id')) : null;
+        $me = session('member_id') ? TeamMember::with('branch')->find(session('member_id')) : null;
         if (!$me) return $q->whereRaw('1=0');
         $visible = $me->visibleMemberIds();
-        return $q->where(function ($w) use ($visible) {
+        $enterprise = \App\Support\EnterpriseAccess::isOn();
+        $deptId    = $me->department_id;
+        $companyId = $me->branch?->company_id;
+        $myId      = $me->id;
+
+        return $q->where(function ($w) use ($visible, $enterprise, $deptId, $companyId, $myId) {
+            // Classic visibility: assignee or creator in my visible set.
             $w->whereIn('assignee_id', $visible)
               ->orWhereIn('created_by', $visible);
+
+            if ($enterprise) {
+                // Department scope: task thuộc phòng của tôi.
+                if ($deptId) {
+                    $w->orWhere(function ($x) use ($deptId) {
+                        $x->where('scope', 'department')->where('department_id', $deptId);
+                    });
+                }
+                // Company scope: task thuộc công ty của tôi.
+                if ($companyId) {
+                    $w->orWhere(function ($x) use ($companyId) {
+                        $x->where('scope', 'company')->where('company_id', $companyId);
+                    });
+                }
+                // Cross-dept: task cha có subtask gán cho tôi → tôi thấy task cha
+                // (quyền chỉnh giới hạn ở subtask của tôi, enforce ở bước 5).
+                $w->orWhereHas('subtasks', function ($x) use ($myId) {
+                    $x->where('assignee_id', $myId);
+                });
+            }
         });
     }
 
